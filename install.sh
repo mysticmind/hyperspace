@@ -71,7 +71,11 @@ link() {
     printf 'prior-symlink\t%s\t%s\n' "$dst" "$cur" >> "$MANIFEST"
     rm "$dst"
   elif [[ -e "$dst" ]]; then
-    local bak="$dst.bak.hyperspace.$STAMP"
+    # Backups go to the state dir, NOT next to the original. SwiftBar runs
+    # every file in its plugin directory, so a .bak left beside a plugin
+    # becomes a second copy of that plugin in the menu bar.
+    mkdir -p "$STATE/backups"
+    local bak="$STATE/backups/$(basename "$dst").bak.hyperspace.$STAMP"
     mv "$dst" "$bak"
     printf 'backup\t%s\t%s\n' "$dst" "$bak" >> "$MANIFEST"
     note "backed up existing ${dst/#$HOME/\~} -> $(basename "$bak")"

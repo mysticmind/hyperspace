@@ -76,6 +76,8 @@ plugins/<name>/
   bindings.toml      [mode.main.binding] lines to splice in      (optional)
   window-rules.toml  [[on-window-detected]] blocks               (optional)
   swiftbar/          menu bar plugins, linked into ~/.config/swiftbar
+                     (only put plugins here — SwiftBar RUNS every file in
+                     that directory; helper scripts belong in the plugin root)
   install.sh         run on enable                               (optional)
   uninstall.sh       run on disable                              (optional)
 ```
@@ -98,6 +100,14 @@ base carries two markers, and `bin/build-config` splices enabled plugins in:
 ```
 # @plugin-window-rules@   <- [[on-window-detected]] blocks land here
 # @plugin-bindings@       <- binding lines land here, inside [mode.main.binding]
+```
+
+Inside a plugin's own files, `@PLUGIN_DIR@` is substituted with that plugin's
+directory, so a plugin can call its own helper scripts without hardcoding
+where the repo was cloned:
+
+```toml
+cmd-ctrl-alt-shift-period = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'
 ```
 
 The generated file is gitignored, and `install.sh` builds it before linking.
@@ -125,6 +135,7 @@ fails to build.
 |---|---|
 | `volume` | `Super+[` / `Super+]` volume, `Super+\` mute — uses AeroSpace's native `volume` command, no dependencies |
 | `screenshot` | `Super+P` region to clipboard, `Super+Shift+P` region to file |
+| `spotify` | now playing in the menu bar with transport controls; `Super+Shift+,` / `.` prev/next, `Super+Shift+\\` play-pause |
 
 ## Your terminal's title bar
 

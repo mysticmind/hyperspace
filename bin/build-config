@@ -54,7 +54,9 @@ def main():
         d = PLUGINS/name
         bf, rf = d/"bindings.toml", d/"window-rules.toml"
         if bf.exists():
-            body = bf.read_text().strip()
+            # @PLUGIN_DIR@ lets a plugin call its own helper scripts without
+            # hardcoding where the repo was cloned. Substituted at build time.
+            body = bf.read_text().strip().replace("@PLUGIN_DIR@", str(d))
             for line in body.splitlines():
                 m = BINDING_RE.match(line.strip())
                 if not m:
@@ -70,7 +72,8 @@ def main():
                 claimed[key] = (f"plugin '{name}'", 0)
             bindings.append(f"# --- plugin: {name} ---\n{body}")
         if rf.exists():
-            rules.append(f"# --- plugin: {name} ---\n{rf.read_text().strip()}")
+            rules.append(f"# --- plugin: {name} ---\n"
+                         + rf.read_text().strip().replace("@PLUGIN_DIR@", str(d)))
         used.append(name)
 
     text = text.replace("# @plugin-bindings@",

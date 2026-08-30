@@ -1,0 +1,7 @@
+# The plugin-dir token below is replaced with this plugin's own directory
+# by bin/build-config, so nothing hardcodes where the repo was cloned.
+# macOS media keys already do this globally; these are for when your hands are
+# on the home row and Spotify is not focused.
+cmd-ctrl-alt-shift-period = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'         # next track
+cmd-ctrl-alt-shift-comma = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl previous'     # previous track
+cmd-ctrl-alt-shift-backslash = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl playpause'  # play / pause

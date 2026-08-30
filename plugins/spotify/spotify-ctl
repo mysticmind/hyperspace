@@ -1,0 +1,11 @@
+#!/bin/bash
+# Transport control for the SwiftBar plugin's dropdown.
+# Guarded: never launches Spotify — `tell application "Spotify"` would start it.
+pgrep -x Spotify >/dev/null 2>&1 || exit 0
+case "${1:-}" in
+  playpause) osascript -e 'tell application "Spotify" to playpause' ;;
+  next)      osascript -e 'tell application "Spotify" to next track' ;;
+  previous)  osascript -e 'tell application "Spotify" to previous track' ;;
+  open)      open -a Spotify ;;
+  *) echo "usage: spotify-ctl (playpause|next|previous|open)" >&2; exit 1 ;;
+esac
