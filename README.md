@@ -144,6 +144,33 @@ when the visible frame changes, and you get windows sized for the old frame.
 arrow and `hjkl` bindings — that is what you will see. The line number it
 reports is the *second* definition.
 
+**Karabiner can read a new config without applying it.** The tell is in
+`~/.local/share/karabiner/log/console_user_server.log`: a `Load ...karabiner.json`
+line with no `core_configuration is updated` after it, usually alongside
+`core_service_daemon_client connect_failed: Permission denied`. Every remap
+silently does nothing — Caps Lock stops being Super and every binding looks
+broken, while the config file on disk is perfectly correct. Fix:
+
+```sh
+launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.Karabiner-Core-Service-rev2"
+launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server"
+```
+
+`install.sh` does this after writing the rule, and warns if the log still does
+not show the config applied.
+
+**To tell a dead keybinding from a dead command**, run the command directly and
+then fire the binding by name:
+
+```sh
+aerospace layout horizontal vertical              # is the command broken?
+aerospace config --get mode.main.binding --keys   # is the binding registered?
+aerospace trigger-binding --mode main cmd-ctrl-alt-e   # does the binding work?
+```
+
+If all three succeed but the physical chord does nothing, the problem is key
+delivery — Karabiner or a conflicting global hotkey — not AeroSpace.
+
 **The key is named `esc`, not `escape`.**
 
 **`'''triple-quoted'''` TOML strings** are not parsed; use single quotes and

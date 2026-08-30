@@ -81,6 +81,24 @@ link "$REPO/config/borders/bordersrc" "$HOME/.config/borders/bordersrc"
 log "Adding the Caps Lock -> Super rule to your existing karabiner.json"
 "$REPO/bin/karabiner-rule" install --rule "$REPO/config/karabiner/caps-to-super.json"
 
+# Karabiner watches this file, but a stale user server will READ it without
+# APPLYING it — the log shows "Load ...karabiner.json..." with no
+# "core_configuration is updated" after it, and core_service_daemon_client
+# refusing to connect with "Permission denied". Every key remap silently does
+# nothing until the agents are restarted. Kick them so the rule takes effect.
+log "Restarting Karabiner agents so the rule actually applies"
+for svc in Karabiner-Core-Service-rev2 Karabiner-Console-User-Server; do
+  launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.$svc" 2>/dev/null || true
+done
+sleep 3
+KLOG="$HOME/.local/share/karabiner/log/console_user_server.log"
+if [[ -f "$KLOG" ]] && tail -30 "$KLOG" | grep -q "core_configuration is updated"; then
+  log "Karabiner applied the config"
+else
+  warn "Karabiner may not have applied the config — check $KLOG"
+  warn "and open Karabiner-Elements once to grant any pending permission."
+fi
+
 # --- 4. Menu bar auto-hide --------------------------------------------------
 # This is what actually lets windows use the full display height: with the menu
 # bar auto-hidden macOS reports visibleFrame as the FULL screen, so AeroSpace
