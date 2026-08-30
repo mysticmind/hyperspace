@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Launch-at-login for apps whose own setting we cannot reach.
+#
+# SwiftBar and Ice register login items through SMAppService, which only the
+# app itself can call — no shell, no defaults key, and `osascript` needs
+# Automation permission it usually does not have. A LaunchAgent that simply
+# `open`s the app at login does the same job with no daemon: RunAtLoad only,
+# no KeepAlive, nothing resident.
+#
+# If you later tick "Launch at Login" inside the app, remove the agent here
+# first or the app will be launched twice.
+#
+# Usage: login-agent (install|uninstall) <AppName> [<AppName>...]
+set -euo pipefail
+
+action="${1:?usage: login-agent (install|uninstall) <AppName>...}"; shift
+AGENTS="$HOME/Library/LaunchAgents"
+mkdir -p "$AGENTS"
+
+for app in "$@"; do
+  label="com.hyperspace.$(echo "$app" | tr '[:upper:]' '[:lower:]')"
+  plist="$AGENTS/$label.plist"
+  case "$action" in
+    install)
+      if [[ ! -d "/Applications/$app.app" ]]; then
+        printf '  skip %s (not in /Applications)\n' "$app"; continue
+      fi
+      cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$label</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/open</string>
+        <string>-a</string>
+        <string>$app</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+      launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+      launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null \
+        || launchctl load "$plist" 2>/dev/null \
+        || printf '  warn: could not load %s\n' "$label"
+      printf '  %s starts at login (%s)\n' "$app" "$label"
+      ;;
+    uninstall)
+      launchctl bootout "gui/$(id -u)/$label" 2>/dev/null \
+        || launchctl unload "$plist" 2>/dev/null || true
+      rm -f "$plist"
+      printf '  %s no longer starts at login\n' "$app"
+      ;;
+    *) echo "unknown action: $action"; exit 1 ;;
+  esac
+done

@@ -106,7 +106,14 @@ record_default com.ameba.SwiftBar PluginDirectory
 defaults write com.ameba.SwiftBar PluginDirectory -string "$HOME/.config/swiftbar"
 log "SwiftBar plugin directory -> ~/.config/swiftbar"
 
-# --- 6. Start everything ----------------------------------------------------
+# --- 6. Launch at login -----------------------------------------------------
+# SwiftBar and Ice register login items through SMAppService, which only the
+# app itself can call. A LaunchAgent that opens them at login does the same
+# job with nothing resident. AeroSpace and borders handle their own.
+log "Registering login agents for SwiftBar and Ice"
+"$REPO/bin/login-agent" install SwiftBar Ice
+
+# --- 7. Start everything ----------------------------------------------------
 # AeroSpace LAST and always restarted: it does not recompute screen geometry
 # when the menu bar visibility changes, so it must start after step 4.
 log "Starting services"
@@ -123,10 +130,15 @@ $(printf '\033[1;32mDone.\033[0m') Super = Caps Lock (⌘⌃⌥). Super+Return o
 
 Steps this script cannot do for you:
   - Grant Accessibility to AeroSpace and Karabiner when macOS asks.
-  - Turn on "Launch at Login" in SwiftBar and Ice preferences. Both use
-    SMAppService, which is not settable from a shell. AeroSpace and borders
-    handle their own login start.
+  - Hide your terminal's title bar, if you want the traffic lights gone:
+    Alacritty  ~/.config/alacritty/alacritty.toml   decorations = "none"
+    Ghostty    ~/.config/ghostty/config             window-decoration = false
+    Your terminal config is yours; this repo does not touch it.
   - The full keybinding list is in the SwiftBar menu (Cheatsheet) and README.md.
+
+Everything starts at login: AeroSpace and borders on their own, SwiftBar and
+Ice via LaunchAgents. If you later tick "Launch at Login" inside SwiftBar or
+Ice, run `bin/login-agent uninstall SwiftBar Ice` first or they launch twice.
 
 Homebrew packages are NOT removed by uninstall.sh, by design. See README.
 EOF

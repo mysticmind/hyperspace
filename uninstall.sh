@@ -20,6 +20,9 @@ brew services stop FelixKratz/formulae/borders >/dev/null 2>&1 || true
 osascript -e 'quit app "AeroSpace"' 2>/dev/null || killall AeroSpace 2>/dev/null || true
 osascript -e 'quit app "SwiftBar"' 2>/dev/null || killall SwiftBar 2>/dev/null || true
 
+# --- 1b. Login agents -------------------------------------------------------
+"$REPO/bin/login-agent" uninstall SwiftBar Ice 2>/dev/null || true
+
 # --- 2. Unlink configs, restore what we displaced ---------------------------
 # Only paths the manifest records as OURS are touched.
 if [[ -f "$MANIFEST" ]]; then

@@ -36,9 +36,8 @@ cd ~/oss_contrib/hyperspace
 ./install.sh
 ```
 
-Then grant Accessibility to AeroSpace and Karabiner when asked, and turn on
-"Launch at Login" in SwiftBar and Ice (both use `SMAppService`, which a shell
-script cannot set).
+Then grant Accessibility to AeroSpace and Karabiner when macOS asks. That is
+the only manual step — everything starts at login on its own.
 
 ## Uninstall
 
@@ -49,6 +48,27 @@ script cannot set).
 It restores every file it displaced and every `defaults` key it changed, using
 values recorded at install time. **It does not uninstall Homebrew packages** —
 it prints the commands and lets you decide.
+
+## Your terminal's title bar
+
+Under a tiler the traffic lights are dead weight. This repo does not touch your
+terminal config (rule 1), so set it yourself:
+
+```toml
+# ~/.config/alacritty/alacritty.toml
+[window]
+decorations = "none"       # no title bar at all
+# "buttonless" keeps the bar and only drops the buttons
+```
+
+```
+# ~/.config/ghostty/config
+window-decoration = false
+```
+
+Decoration changes apply to **new** windows, not ones already open. Apps that
+are not terminals (Firefox, and so on) give you no such setting — macOS has no
+global switch for window controls.
 
 ## Keybindings
 
@@ -143,6 +163,9 @@ Written down because the setup this replaced broke every one of them:
    directory keep working.
 5. **Merge into the user's Karabiner config, never replace it.** `bin/karabiner-rule`
    adds one rule and removes one, leaving every other rule intact.
+6. **A LaunchAgent may launch an app; it may not be a daemon.** The two agents
+   here are `RunAtLoad` only, with no `KeepAlive` and nothing resident, and
+   they exist solely because `SMAppService` is unreachable from a shell.
 
 ## Layout
 
@@ -150,6 +173,7 @@ Written down because the setup this replaced broke every one of them:
 Brewfile                          dependencies
 install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
+bin/login-agent                   launch-at-login for SwiftBar and Ice
 config/aerospace/aerospace.toml   the window manager
 config/swiftbar/aerospace.10s.sh  menu bar plugin: pills, switcher, cheatsheet
 config/borders/bordersrc          focused-window ring
