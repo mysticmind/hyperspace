@@ -103,7 +103,7 @@ cmd-ctrl-alt-shift-right = 'move right'
 
 # Layout (omarchy: Super+T float, Super+E split toggle, Super+F fullscreen)
 cmd-ctrl-alt-t = 'layout floating tiling'   # float / tile
-cmd-ctrl-alt-e = 'layout horizontal vertical'   # togglesplit: flip orientation
+cmd-ctrl-alt-e = 'layout horizontal vertical'   # flip split orientation
 cmd-ctrl-alt-a = 'layout tiles accordion'   # accordion / tiles
 cmd-ctrl-alt-f = 'fullscreen --no-outer-gaps'   # fullscreen
 # Omarchy puts the keybinding sheet on Super+K. The window is a floating

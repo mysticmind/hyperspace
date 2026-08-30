@@ -78,22 +78,91 @@ def parse(path):
     return sections
 
 
-def main():
-    sections = parse(CONFIG)
-    width = shutil.get_terminal_size((88, 40)).columns
-    title = "hyperspace — keybindings    (Super = Caps Lock)"
-    print(f"\n  \033[1;36m{title}\033[0m")
-    print("  " + "─" * min(len(title) + 4, width - 4))
-    order = ["mode.main.binding"] + [s for s in sections if s != "mode.main.binding"]
+KEYW, DESCW, GUTTER = 20, 30, 4
+COLW = KEYW + DESCW + 2
+
+
+def blocks(sections):
+    """[(header, [(key, desc), ...]), ...] in a stable order."""
+    order = ["mode.main.binding"] + [k for k in sections if k != "mode.main.binding"]
+    out = []
     for sec in order:
         rows = sections.get(sec)
         if not rows:
             continue
-        label = "main" if sec == "mode.main.binding" else sec.replace(".binding", "").replace("mode.", "") + " mode"
-        print(f"\n  \033[1;33m{label}\033[0m")
-        for key, desc in collapse(rows):
-            print(f"    \033[1;37m{key:<22}\033[0m {desc[:width - 30]}")
-    print(f"\n  \033[2mSuper+K closes this. Config: {CONFIG}\033[0m\n")
+        label = ("main" if sec == "mode.main.binding"
+                 else sec.replace(".binding", "").replace("mode.", "") + " mode")
+        out.append((label, collapse(rows)))
+    return out
+
+
+def render_lines(bs):
+    """Flatten blocks into (plain, styled) line pairs, keeping headers attached."""
+    lines = []
+    for i, (label, rows) in enumerate(bs):
+        if i:
+            lines.append(("", ""))
+        lines.append((label, f"\033[1;33m{label}\033[0m"))
+        for key, desc in rows:
+            k, d = key[:KEYW], desc[:DESCW]
+            lines.append((f" {k:<{KEYW}} {d}", f" \033[1;37m{k:<{KEYW}}\033[0m {d}"))
+    return lines
+
+
+def layout(lines, columns=2):
+    """Equal-height columns. Cutting only on blank lines leaves one column
+    enormous when a single section dominates, so cut anywhere — just never
+    directly after a section header, which would strand it at a column foot."""
+    if columns < 2 or not lines:
+        return [lines]
+    while lines and lines[-1][0] == "":
+        lines.pop()
+    height = -(-len(lines) // columns)
+    is_header = lambda i: 0 <= i < len(lines) and lines[i][0] and not lines[i][0].startswith(" ")
+    cols, start = [], 0
+    for c in range(columns):
+        end = len(lines) if c == columns - 1 else min(start + height, len(lines))
+        if c < columns - 1 and is_header(end - 1):
+            end -= 1                      # push a trailing header into the next column
+        chunk = lines[start:end]
+        while chunk and chunk[0][0] == "":
+            chunk.pop(0)                  # no leading blank at a column top
+        cols.append(chunk)
+        start = end
+    return cols
+
+
+def compose(sections, columns=2):
+    cols = layout(render_lines(blocks(sections)), columns)
+    height = max(len(c) for c in cols)
+    out = []
+    for r in range(height):
+        parts = []
+        for c in cols:
+            plain, styled = c[r] if r < len(c) else ("", "")
+            parts.append(styled + " " * (COLW + GUTTER - len(plain)))
+        out.append("  " + "".join(parts).rstrip())
+    return out
+
+
+def main():
+    sections = parse(CONFIG)
+    columns = 1 if "--one-column" in sys.argv else 2
+    body = compose(sections, columns)
+    title = "hyperspace — keybindings    (Super = Caps Lock)"
+    width = max(len(l) for l in body) if body else 60
+
+    if "--size" in sys.argv:
+        # cols, lines — the toggle sizes the window from this, so the sheet
+        # never scrolls and never leaves empty space.
+        print(max(width, len(title) + 4) + 2, len(body) + 6)
+        return
+
+    print(f"\n  \033[1;36m{title}\033[0m")
+    print("  " + "─" * (len(title) + 2))
+    for line in body:
+        print(line)
+    print(f"\n  \033[2mSuper+K closes this.\033[0m")
 
 
 if __name__ == "__main__":

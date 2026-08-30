@@ -12,39 +12,61 @@ TERM_BIN="/Applications/Alacritty.app/Contents/MacOS/alacritty"
 HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
 SHEET="$HERE/cheatsheet"
 
-wid="$("$AS" list-windows --all --format '%{window-id}|%{window-title}' 2>/dev/null \
-       | awk -F'|' -v t="$TITLE" '$2 == t { print $1; exit }')"
+read -r wid pid < <("$AS" list-windows --all --format '%{window-id}|%{app-pid}|%{window-title}' 2>/dev/null \
+                    | awk -F'|' -v t="$TITLE" '$3 == t { print $1, $2; exit }')
 
-if [[ -n "$wid" ]]; then
-  "$AS" close --window-id "$wid"
+if [[ -n "${wid:-}" ]]; then
+  # AeroSpace's `close` presses the window's Accessibility close button, and a
+  # decorations="none" window has none — so close is a silent no-op here and
+  # the sheet would never shut. Kill the instance instead: `open -na` gave it
+  # its own process. Guarded, so a shared process is never killed out from
+  # under other windows.
+  owned="$("$AS" list-windows --all --format '%{app-pid}' 2>/dev/null | grep -c "^${pid}$")"
+  if [[ "$owned" == "1" ]]; then
+    kill "$pid" 2>/dev/null || "$AS" close --window-id "$wid"
+  else
+    "$AS" close --window-id "$wid"
+  fi
   exit 0
 fi
 
-[[ -x "$TERM_BIN" ]] || { echo "Alacritty not found at $TERM_BIN" >&2; exit 1; }
+[[ -d /Applications/Alacritty.app ]] || { echo "Alacritty.app not found" >&2; exit 1; }
 
 # Centre it. AeroSpace cannot place a floating window, and Alacritty otherwise
 # lands wherever macOS cascades it — which put the sheet partly off the top of
 # the screen. Finder's desktop bounds give the display size with no special
 # permission; the glyph constants are measured for JetBrains Mono at size 14.
-COLS=66; LINES=44
+# Ask the sheet how big it needs to be, so the window never scrolls and never
+# leaves dead space — and stays right as plugins add bindings.
+read -r COLS LINES < <("$SHEET" --size 2>/dev/null)
+: "${COLS:=100}" "${LINES:=36}"
 read -r SW SH < <(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
                   | awk -F', ' '{print $3, $4}')
 : "${SW:=1440}" "${SH:=900}"
 # Alacritty's window.position is in PHYSICAL pixels while Finder reports
 # points, so the centred point coordinates are scaled by the display's backing
 # factor (2 on Retina). Measured: requesting x=441 landed the window at x=220pt.
+# Vertical has a constant offset on top of the scaling. Measured on a 1440x900
+# Retina display, same window height:
+#     y=212px -> top 12pt      y=600px -> top 206pt
+#     => top = y/2 - 94, so y = 2 * (top + 94)
+# Verified: requesting 394 put the window at top=103, bottom=797 — centred.
 SCALE="${HYPERSPACE_SCALE:-2}"
-read -r POS_X POS_Y < <(awk -v sw="$SW" -v sh="$SH" -v c="$COLS" -v l="$LINES" -v k="$SCALE" \
+YOFF="${HYPERSPACE_Y_OFFSET:-94}"
+read -r POS_X POS_Y < <(awk -v sw="$SW" -v sh="$SH" -v c="$COLS" -v l="$LINES" -v k="$SCALE" -v yo="$YOFF" \
   'BEGIN { w = c * 8.45; h = l * 19.1;
            x = (sw - w) / 2; y = (sh - h) / 2;
            if (x < 0) x = 0; if (y < 0) y = 0;
-           print int(x * k), int(y * k) }')
+           print int(x * k), int((y + yo) * k) }')
 
 # startup_mode is overridden because a user config may set Maximized, which
 # would make the sheet fill the screen instead of floating small.
-# nohup + disown: without them the terminal is a child of this script and dies
-# with it the moment the script returns, so the window flashes and vanishes.
-nohup "$TERM_BIN" --title "$TITLE" \
+# Launched through LaunchServices (`open -na`) rather than as a child process.
+# A backgrounded terminal — even with nohup and disown — dies when the process
+# group of whatever spawned it is torn down, and the window just flashes and
+# vanishes. `open` hands the launch to macOS, so it outlives this script.
+open -na Alacritty --args \
+  --title "$TITLE" \
   -o 'window.startup_mode="Windowed"' \
   -o "window.dimensions.columns=$COLS" \
   -o "window.dimensions.lines=$LINES" \
@@ -52,6 +74,4 @@ nohup "$TERM_BIN" --title "$TITLE" \
   -o "window.position.y=$POS_Y" \
   -o 'window.padding.x=14' \
   -o 'window.padding.y=14' \
-  -e /bin/bash -c "'$SHEET'; printf '  press any key to close '; read -rsn1" \
-  >/dev/null 2>&1 &
-disown
+  -e /bin/bash -c "'$SHEET'; printf '  press any key to close '; read -rsn1"
