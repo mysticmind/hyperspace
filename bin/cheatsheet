@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Render the keybinding cheatsheet FROM aerospace.toml.
+
+Parsing the live config is the point: the sheet cannot drift from the keys it
+documents, and any binding a plugin adds shows up here for free.
+
+A trailing `# comment` on a binding line becomes its description; without one,
+the AeroSpace command itself is shown.
+"""
+import os, pathlib, re, sys, shutil
+
+CONFIG = pathlib.Path(os.environ.get(
+    "HYPERSPACE_AEROSPACE_CONFIG", pathlib.Path.home()/".config/aerospace/aerospace.toml"))
+
+MODS = [("cmd-ctrl-alt-shift-", "Super+Shift+"), ("cmd-ctrl-alt-", "Super+"),
+        ("ctrl-alt-", "Ctrl+Alt+"), ("alt-shift-", "Alt+Shift+"), ("alt-", "Alt+")]
+KEYS = {"enter": "Return", "minus": "-", "equal": "=", "esc": "Esc", "tab": "Tab",
+        "space": "Space", "semicolon": ";", "comma": ",", "backspace": "⌫",
+        "left": "←", "right": "→", "up": "↑", "down": "↓",
+        "leftsquarebracket": "[", "rightsquarebracket": "]", "backslash": "\\",
+        "slash": "/", "period": ".", "quote": "'", "backtick": "`"}
+
+
+def pretty(binding):
+    prefix = ""
+    for raw, nice in MODS:
+        if binding.startswith(raw):
+            prefix, binding = nice, binding[len(raw):]
+            break
+    low = binding.lower()
+    if low in KEYS:
+        return prefix + KEYS[low]
+    return prefix + (binding.upper() if len(binding) == 1 else binding.capitalize())
+
+
+def collapse(rows):
+    """1..9 workspace bindings are nine identical lines; show them as one."""
+    out, seen = [], set()
+    for key, desc in rows:
+        m = re.match(r"^(Super(?:\+Shift)?\+)([1-9])$", key)
+        if m:
+            group = m.group(1)
+            if group in seen:
+                continue
+            seen.add(group)
+            key = f"{group}1..9"
+            desc = re.sub(r"\b1\b", "N", desc)
+        out.append((key, desc))
+    return out
+
+
+def parse(path):
+    if not path.exists():
+        sys.exit(f"no config at {path}")
+    sections, current = {}, None
+    for line in path.read_text().splitlines():
+        s = line.strip()
+        if s.startswith("[") and s.endswith("]"):
+            current = s.strip("[]")
+            continue
+        if not current or "binding" not in current or "=" not in s or s.startswith("#"):
+            continue
+        key, _, rest = s.partition("=")
+        key, rest = key.strip(), rest.strip()
+        desc = None
+        if "#" in rest:                      # trailing comment wins as the label
+            cmd_part, _, comment = rest.rpartition("#")
+            if cmd_part.strip():
+                rest, desc = cmd_part.strip(), comment.strip()
+        if desc is None:
+            if rest.startswith("["):          # ['reload-config', 'mode main']
+                desc = " + ".join(re.findall(r"'([^']*)'", rest))
+            else:
+                desc = rest.strip("'\"[] ")
+            desc = re.sub(r"^exec-and-forget\s+", "", desc)
+            desc = re.sub(r"\$HOME/[^\s']*/", "", desc)
+        sections.setdefault(current, []).append((pretty(key), desc))
+    return sections
+
+
+def main():
+    sections = parse(CONFIG)
+    width = shutil.get_terminal_size((88, 40)).columns
+    title = "hyperspace — keybindings    (Super = Caps Lock)"
+    print(f"\n  \033[1;36m{title}\033[0m")
+    print("  " + "─" * min(len(title) + 4, width - 4))
+    order = ["mode.main.binding"] + [s for s in sections if s != "mode.main.binding"]
+    for sec in order:
+        rows = sections.get(sec)
+        if not rows:
+            continue
+        label = "main" if sec == "mode.main.binding" else sec.replace(".binding", "").replace("mode.", "") + " mode"
+        print(f"\n  \033[1;33m{label}\033[0m")
+        for key, desc in collapse(rows):
+            print(f"    \033[1;37m{key:<22}\033[0m {desc[:width - 30]}")
+    print(f"\n  \033[2mSuper+K closes this. Config: {CONFIG}\033[0m\n")
+
+
+if __name__ == "__main__":
+    main()

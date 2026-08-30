@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Super+K: show the cheatsheet, or close it if it is already up.
+#
+# The window is an ordinary Alacritty window with a known title, floated by an
+# on-window-detected rule in aerospace.toml. No always-running helper, no
+# private API — the toggle is just "does a window with this title exist".
+set -uo pipefail
+
+TITLE="hyperspace-cheatsheet"
+AS="${AEROSPACE:-/opt/homebrew/bin/aerospace}"
+TERM_BIN="/Applications/Alacritty.app/Contents/MacOS/alacritty"
+HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
+SHEET="$HERE/cheatsheet"
+
+wid="$("$AS" list-windows --all --format '%{window-id}|%{window-title}' 2>/dev/null \
+       | awk -F'|' -v t="$TITLE" '$2 == t { print $1; exit }')"
+
+if [[ -n "$wid" ]]; then
+  "$AS" close --window-id "$wid"
+  exit 0
+fi
+
+[[ -x "$TERM_BIN" ]] || { echo "Alacritty not found at $TERM_BIN" >&2; exit 1; }
+
+# startup_mode is overridden because a user config may set Maximized, which
+# would make the sheet fill the screen instead of floating small.
+"$TERM_BIN" --title "$TITLE" \
+  -o 'window.startup_mode="Windowed"' \
+  -o 'window.dimensions.columns=66' \
+  -o 'window.dimensions.lines=44' \
+  -o 'window.padding.x=14' \
+  -o 'window.padding.y=14' \
+  -e /bin/bash -c "'$SHEET'; printf '  press any key to close '; read -rsn1" \
+  >/dev/null 2>&1 &

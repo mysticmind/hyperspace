@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Generate aerospace.toml from aerospace.base.toml + enabled plugins.
+
+Plugins contribute two things, spliced in at markers in the base file:
+  bindings.toml      -> @plugin-bindings@      (inside [mode.main.binding])
+  window-rules.toml  -> @plugin-window-rules@  ([[on-window-detected]] blocks)
+
+Duplicate binding keys are the failure this guards against: AeroSpace reports
+them only as "Ill-formed key" with the line number of the SECOND definition,
+which tells you nothing about which plugin collided. We catch it here and name
+both sides instead.
+"""
+import pathlib, re, sys
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+BASE = REPO/"config/aerospace/aerospace.base.toml"
+OUT = REPO/"config/aerospace/aerospace.toml"
+PLUGINS = REPO/"plugins"
+STATE = pathlib.Path.home()/".local/state/hyperspace/enabled-plugins"
+
+BINDING_RE = re.compile(r"^([A-Za-z0-9_\-]+)\s*=")
+
+
+def enabled():
+    if not STATE.exists():
+        return []
+    names = [l.strip() for l in STATE.read_text().splitlines() if l.strip() and not l.startswith("#")]
+    return [n for n in names if (PLUGINS/n).is_dir()]
+
+
+def base_binding_keys(text):
+    """Keys already claimed by the base config's [mode.main.binding]."""
+    keys, in_main = {}, False
+    for i, line in enumerate(text.splitlines(), 1):
+        s = line.strip()
+        if s.startswith("["):
+            in_main = s == "[mode.main.binding]"
+            continue
+        if in_main:
+            m = BINDING_RE.match(s)
+            if m:
+                keys[m.group(1)] = ("base config", i)
+    return keys
+
+
+def main():
+    if not BASE.exists():
+        sys.exit(f"missing {BASE}")
+    text = BASE.read_text()
+    claimed = base_binding_keys(text)
+    bindings, rules, used = [], [], []
+
+    for name in enabled():
+        d = PLUGINS/name
+        bf, rf = d/"bindings.toml", d/"window-rules.toml"
+        if bf.exists():
+            body = bf.read_text().strip()
+            for line in body.splitlines():
+                m = BINDING_RE.match(line.strip())
+                if not m:
+                    continue
+                key = m.group(1)
+                if key in claimed:
+                    owner, ln = claimed[key]
+                    sys.exit(
+                        f"plugin '{name}' binds {key}, already bound by {owner}"
+                        + (f" (line {ln})" if owner == "base config" else "")
+                        + "\nAeroSpace would reject this as 'Ill-formed key'. "
+                          "Change one of them or disable a plugin.")
+                claimed[key] = (f"plugin '{name}'", 0)
+            bindings.append(f"# --- plugin: {name} ---\n{body}")
+        if rf.exists():
+            rules.append(f"# --- plugin: {name} ---\n{rf.read_text().strip()}")
+        used.append(name)
+
+    text = text.replace("# @plugin-bindings@",
+                        "\n\n".join(bindings) if bindings else "# (no plugin bindings)")
+    text = text.replace("# @plugin-window-rules@",
+                        "\n\n".join(rules) if rules else "# (no plugin window rules)")
+    OUT.write_text(text)
+    print(f"wrote {OUT.relative_to(REPO)}" + (f" with plugins: {', '.join(used)}" if used else " (no plugins enabled)"))
+
+
+if __name__ == "__main__":
+    main()

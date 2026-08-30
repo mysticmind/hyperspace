@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Manage hyperspace plugins.
+
+    plugin list                 what exists, and what is on
+    plugin enable <name>...     turn on, rebuild the config, reload AeroSpace
+    plugin disable <name>...    turn off, likewise
+
+A plugin is a directory under plugins/ containing:
+
+    plugin.toml        name + description                        (required)
+    bindings.toml      [mode.main.binding] lines to splice in    (optional)
+    window-rules.toml  [[on-window-detected]] blocks             (optional)
+    swiftbar/          menu bar plugins, linked into ~/.config/swiftbar (optional)
+    install.sh         run on enable                             (optional)
+    uninstall.sh       run on disable                            (optional)
+
+Nothing is enabled implicitly: dropping a directory into plugins/ does nothing
+until you enable it, so a git pull cannot silently rebind your keyboard.
+"""
+import pathlib, subprocess, sys, tomllib
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+PLUGINS = REPO/"plugins"
+STATE = pathlib.Path.home()/".local/state/hyperspace/enabled-plugins"
+SWIFTBAR = pathlib.Path.home()/".config/swiftbar"
+AEROSPACE = "/opt/homebrew/bin/aerospace"
+
+
+def enabled():
+    if not STATE.exists():
+        return []
+    return [l.strip() for l in STATE.read_text().splitlines() if l.strip() and not l.startswith("#")]
+
+
+def write_enabled(names):
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text("\n".join(sorted(set(names))) + "\n")
+
+
+def meta(name):
+    f = PLUGINS/name/"plugin.toml"
+    if not f.exists():
+        return {"name": name, "description": "(no plugin.toml)"}
+    try:
+        return tomllib.loads(f.read_text())
+    except Exception as e:
+        return {"name": name, "description": f"(bad plugin.toml: {e})"}
+
+
+def available():
+    return sorted(d.name for d in PLUGINS.iterdir() if d.is_dir()) if PLUGINS.is_dir() else []
+
+
+def link_swiftbar(name, on):
+    d = PLUGINS/name/"swiftbar"
+    if not d.is_dir():
+        return
+    SWIFTBAR.mkdir(parents=True, exist_ok=True)
+    for f in d.iterdir():
+        dst = SWIFTBAR/f.name
+        if on:
+            if dst.exists() and not dst.is_symlink():
+                print(f"  skip {f.name}: a real file already exists there")
+                continue
+            dst.unlink(missing_ok=True)
+            dst.symlink_to(f)
+            print(f"  linked menu bar plugin {f.name}")
+        elif dst.is_symlink() and dst.resolve() == f.resolve():
+            dst.unlink()
+            print(f"  unlinked menu bar plugin {f.name}")
+
+
+def hook(name, script):
+    f = PLUGINS/name/script
+    if f.exists():
+        subprocess.run(["/bin/bash", str(f)], check=False)
+
+
+def rebuild():
+    """Returns True on success. Never leaves a broken config behind."""
+    r = subprocess.run([str(REPO/"bin/build-config")], capture_output=True, text=True)
+    print(r.stdout.strip() or r.stderr.strip())
+    if r.returncode != 0:
+        return False
+    subprocess.run([AEROSPACE, "reload-config"], check=False)
+    return True
+
+
+def cmd_list():
+    on = set(enabled())
+    names = available()
+    if not names:
+        print("no plugins in plugins/")
+        return
+    for n in names:
+        m = meta(n)
+        mark = "\033[1;32m on\033[0m" if n in on else "\033[2moff\033[0m"
+        print(f"  [{mark}] {n:<14} {m.get('description', '')}")
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__); return
+    action, names = sys.argv[1], sys.argv[2:]
+    if action == "list":
+        cmd_list(); return
+    if action not in ("enable", "disable") or not names:
+        sys.exit("usage: plugin (list|enable <name>...|disable <name>...)")
+
+    have = available()
+    for n in names:
+        if n not in have:
+            sys.exit(f"no such plugin: {n} (have: {', '.join(have) or 'none'})")
+
+    cur = set(enabled())
+    for n in names:
+        if action == "enable":
+            cur.add(n); print(f"enabling {n}"); hook(n, "install.sh"); link_swiftbar(n, True)
+        else:
+            cur.discard(n); print(f"disabling {n}"); link_swiftbar(n, False); hook(n, "uninstall.sh")
+    # Write state, then roll it back if the rebuild rejects the result — a
+    # colliding plugin must not stay "enabled" and break every later build.
+    previous = enabled()
+    write_enabled(cur)
+    if not rebuild():
+        write_enabled(previous)
+        for n in names:
+            if action == "enable":
+                link_swiftbar(n, False)
+        print("rolled back — plugin state unchanged")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

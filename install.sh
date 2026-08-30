@@ -81,9 +81,20 @@ link() {
   log "linked ${dst/#$HOME/\~}"
 }
 
+# aerospace.toml is GENERATED from aerospace.base.toml plus whichever plugins
+# are enabled, so it has to be built before it can be linked.
+log "Building aerospace.toml from the base config + enabled plugins"
+"$REPO/bin/build-config"
+
 link "$REPO/config/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
 link "$REPO/config/swiftbar/aerospace.10s.sh" "$HOME/.config/swiftbar/aerospace.10s.sh"
 link "$REPO/config/borders/bordersrc" "$HOME/.config/borders/bordersrc"
+
+# Scripts the config and you both call by a stable path, so aerospace.toml
+# never has to know where the repo lives.
+link "$REPO/bin/cheatsheet-toggle" "$HOME/.local/bin/hyperspace-cheatsheet"
+link "$REPO/bin/doctor" "$HOME/.local/bin/hyperspace-doctor"
+link "$REPO/bin/plugin" "$HOME/.local/bin/hyperspace-plugin"
 
 # --- 3. Karabiner: merge one rule into whatever you already have ------------
 log "Adding the Caps Lock -> Super rule to your existing karabiner.json"
@@ -160,7 +171,9 @@ Steps this script cannot do for you:
     Alacritty  ~/.config/alacritty/alacritty.toml   decorations = "none"
     Ghostty    ~/.config/ghostty/config             window-decoration = false
     Your terminal config is yours; this repo does not touch it.
-  - The full keybinding list is in the SwiftBar menu (Cheatsheet) and README.md.
+  - The full keybinding list is on Super+K, in the SwiftBar menu, and README.md.
+
+Plugins:  hyperspace-plugin list | enable <name> | disable <name>
 
 Everything starts at login: AeroSpace and borders on their own, SwiftBar and
 Ice via LaunchAgents. If you later tick "Launch at Login" inside SwiftBar or

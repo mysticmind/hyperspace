@@ -49,6 +49,83 @@ It restores every file it displaced and every `defaults` key it changed, using
 values recorded at install time. **It does not uninstall Homebrew packages** —
 it prints the commands and lets you decide.
 
+## The cheatsheet — `Super+K`
+
+A floating window listing every binding. Press `Super+K` again to close it.
+
+It is **generated from `aerospace.toml` at the moment you press the key**, by
+parsing the live config — so it cannot drift from the keys it documents, and
+any binding a plugin adds appears in it for free. A trailing comment on a
+binding becomes its description:
+
+```toml
+cmd-ctrl-alt-w = 'close'   # close window
+```
+
+The window is an ordinary Alacritty window with a known title, floated by an
+`on-window-detected` rule. The toggle is just "does a window with that title
+exist" — nothing resident, no helper process.
+
+## Plugins
+
+A plugin is a directory under `plugins/`:
+
+```
+plugins/<name>/
+  plugin.toml        name + description                          (required)
+  bindings.toml      [mode.main.binding] lines to splice in      (optional)
+  window-rules.toml  [[on-window-detected]] blocks               (optional)
+  swiftbar/          menu bar plugins, linked into ~/.config/swiftbar
+  install.sh         run on enable                               (optional)
+  uninstall.sh       run on disable                              (optional)
+```
+
+```sh
+hyperspace-plugin list
+hyperspace-plugin enable volume screenshot
+hyperspace-plugin disable volume
+```
+
+**Nothing is enabled implicitly.** Dropping a directory into `plugins/` does
+nothing until you enable it, so a `git pull` can never silently rebind your
+keyboard.
+
+### How it works
+
+`aerospace.toml` is **generated** — edit `aerospace.base.toml` instead. The
+base carries two markers, and `bin/build-config` splices enabled plugins in:
+
+```
+# @plugin-window-rules@   <- [[on-window-detected]] blocks land here
+# @plugin-bindings@       <- binding lines land here, inside [mode.main.binding]
+```
+
+The generated file is gitignored, and `install.sh` builds it before linking.
+
+### Collisions are caught before AeroSpace sees them
+
+Two plugins binding the same key, or a plugin colliding with the base config,
+is the single easiest way to break this setup — and AeroSpace reports it only
+as `Ill-formed key` with the line number of the *second* definition, which
+tells you nothing about which plugin is at fault. `build-config` refuses first
+and names both sides:
+
+```
+plugin 'volume' binds cmd-ctrl-alt-w, already bound by base config (line 87)
+AeroSpace would reject this as 'Ill-formed key'. Change one of them or disable a plugin.
+rolled back — plugin state unchanged
+```
+
+The enable is rolled back, so a bad plugin cannot leave you with a config that
+fails to build.
+
+### Shipped examples
+
+| Plugin | Bindings |
+|---|---|
+| `volume` | `Super+[` / `Super+]` volume, `Super+\` mute — uses AeroSpace's native `volume` command, no dependencies |
+| `screenshot` | `Super+P` region to clipboard, `Super+Shift+P` region to file |
+
 ## Your terminal's title bar
 
 Under a tiler the traffic lights are dead weight. This repo does not touch your
@@ -74,6 +151,10 @@ global switch for window controls.
 
 `Super` = Caps Lock = ⌘⌃⌥. `Super+Shift` is the second layer.
 
+Arrows do focus and movement. `H`/`J`/`K`/`L` are deliberately *not* aliases
+for them: `Super+K` is the cheatsheet (Omarchy's key for it), and half a vim
+cluster is worse than none. `hjkl` still works inside resize mode.
+
 ### Windows
 | Key | Action |
 |---|---|
@@ -81,8 +162,8 @@ global switch for window controls.
 | `Super+Shift+Return` | browser |
 | `Super+Space` | Raycast |
 | `Super+W` | close window |
-| `Super+←↓↑→` / `Super+hjkl` | focus |
-| `Super+Shift+←↓↑→` / `Super+Shift+hjkl` | move window |
+| `Super+←↓↑→` | focus |
+| `Super+Shift+←↓↑→` | move window |
 | `Alt+Tab` / `Alt+Shift+Tab` | cycle windows within the workspace |
 
 ### Layout
@@ -92,6 +173,7 @@ global switch for window controls.
 | `Super+E` | flip split orientation |
 | `Super+A` | accordion ⇄ tiles |
 | `Super+F` | fullscreen (no gaps) |
+| `Super+K` | keybinding cheatsheet (toggle) |
 | `Super+N` | macOS native fullscreen |
 | `Super+-` / `Super+=` | resize |
 | `Super+,` | balance sizes |
@@ -141,8 +223,9 @@ when the visible frame changes, and you get windows sized for the old frame.
 
 **AeroSpace's TOML rejects duplicate keys** with the unhelpful message
 `Ill-formed key`. If a binding is defined twice — easy when you have both
-arrow and `hjkl` bindings — that is what you will see. The line number it
-reports is the *second* definition.
+two bindings for the same chord — that is what you will see. The line number
+it reports is the *second* definition. `bin/build-config` catches this for
+plugin bindings before AeroSpace ever sees the file.
 
 **Karabiner can read a new config without applying it.** The tell is in
 `~/.local/share/karabiner/log/console_user_server.log`: a `Load ...karabiner.json`
@@ -202,7 +285,12 @@ install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
 bin/login-agent                   launch-at-login for SwiftBar and Ice
 bin/doctor                        diagnose the three layers when a chord does nothing
-config/aerospace/aerospace.toml   the window manager
+bin/cheatsheet                    render the cheatsheet from aerospace.toml
+bin/cheatsheet-toggle             Super+K show/hide
+bin/build-config                  aerospace.base.toml + plugins -> aerospace.toml
+bin/plugin                        list / enable / disable plugins
+plugins/<name>/                   see Plugins above
+config/aerospace/aerospace.base.toml   the window manager (aerospace.toml is generated)
 config/swiftbar/aerospace.10s.sh  menu bar plugin: pills, switcher, cheatsheet
 config/borders/bordersrc          focused-window ring
 config/karabiner/caps-to-super.json   the one rule, as a snippet

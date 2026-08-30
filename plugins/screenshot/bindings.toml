@@ -1,0 +1,4 @@
+# -i interactive region, -c to clipboard. Needs Screen Recording permission
+# for the terminal/AeroSpace the first time macOS asks.
+cmd-ctrl-alt-p = 'exec-and-forget /usr/sbin/screencapture -i -c'        # region to clipboard
+cmd-ctrl-alt-shift-p = 'exec-and-forget /usr/sbin/screencapture -i ~/Desktop/shot.png'   # region to file

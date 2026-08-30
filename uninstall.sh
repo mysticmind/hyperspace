@@ -20,6 +20,22 @@ brew services stop FelixKratz/formulae/borders >/dev/null 2>&1 || true
 osascript -e 'quit app "AeroSpace"' 2>/dev/null || killall AeroSpace 2>/dev/null || true
 osascript -e 'quit app "SwiftBar"' 2>/dev/null || killall SwiftBar 2>/dev/null || true
 
+# --- 1a. Plugins ------------------------------------------------------------
+# Disable every enabled plugin first: that runs their uninstall.sh hooks and
+# unlinks any menu bar plugins they added.
+if [[ -f "$HOME/.local/state/hyperspace/enabled-plugins" ]]; then
+  while read -r pl; do
+    [[ -n "$pl" ]] && "$REPO/bin/plugin" disable "$pl" >/dev/null 2>&1 || true
+  done < "$HOME/.local/state/hyperspace/enabled-plugins"
+  log "Disabled all plugins"
+fi
+
+# Scripts we linked into ~/.local/bin, only when they still point at this repo.
+for b in hyperspace-cheatsheet hyperspace-doctor hyperspace-plugin; do
+  t="$(readlink "$HOME/.local/bin/$b" 2>/dev/null || true)"
+  case "$t" in "$REPO"/*) rm -f "$HOME/.local/bin/$b"; log "removed ~/.local/bin/$b" ;; esac
+done
+
 # --- 1b. Login agents -------------------------------------------------------
 "$REPO/bin/login-agent" uninstall SwiftBar Ice 2>/dev/null || true
 

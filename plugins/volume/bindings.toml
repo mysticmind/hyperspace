@@ -1,0 +1,4 @@
+# AeroSpace has a native `volume` command, so this needs nothing installed.
+cmd-ctrl-alt-leftSquareBracket = 'volume down'          # volume down
+cmd-ctrl-alt-rightSquareBracket = 'volume up'           # volume up
+cmd-ctrl-alt-backslash = 'volume mute-toggle'           # mute toggle
