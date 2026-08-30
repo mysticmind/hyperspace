@@ -9,4 +9,6 @@ cask "swiftbar"            # workspace pills IN the native menu bar
 cask "jordanbaird-ice"     # native menu bar overflow management
 brew "borders"             # thin ring around the focused window
 
-cask "font-jetbrains-mono-nerd-font"  # the SwiftBar plugin's title font
+# Optional: the SwiftBar plugin names this font and falls back to the system
+# font without it. Fails to install if you already added these fonts by hand.
+cask "font-jetbrains-mono-nerd-font"

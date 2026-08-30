@@ -25,8 +25,31 @@ command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 
 BREW_PREFIX="$(brew --prefix)"
 
 # --- 1. Dependencies --------------------------------------------------------
+# brew bundle is NOT fatal: the Brewfile carries one optional item (the Nerd
+# Font), and a font cask fails outright if you already installed those fonts
+# by hand. Required tools are verified individually below instead.
 log "Installing dependencies from Brewfile"
-brew bundle --file="$REPO/Brewfile"
+brew bundle --file="$REPO/Brewfile" || warn "brew bundle reported failures — checking what actually matters"
+
+missing=()
+for c in aerospace karabiner-elements swiftbar jordanbaird-ice; do
+  brew list --cask "$c" >/dev/null 2>&1 || missing+=("cask $c")
+done
+brew list borders >/dev/null 2>&1 || missing+=("formula borders")
+if (( ${#missing[@]} )); then
+  printf 'Missing required package(s):\n'
+  printf '  %s\n' "${missing[@]}"
+  echo "Install them and re-run: brew bundle --file=$REPO/Brewfile"
+  exit 1
+fi
+log "All required packages present"
+
+# The Nerd Font is optional — the SwiftBar plugin names it, and falls back to
+# the system font if it is absent. Do not fail the install over it.
+if ! ls "$HOME/Library/Fonts"/JetBrainsMono*Nerd* >/dev/null 2>&1 \
+   && ! brew list --cask font-jetbrains-mono-nerd-font >/dev/null 2>&1; then
+  warn "JetBrains Mono Nerd Font not found — menu bar pills use the system font"
+fi
 
 # --- 2. Link configs --------------------------------------------------------
 # link <source in repo> <destination>
