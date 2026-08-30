@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Super+W: close the focused window.
+#
+# AeroSpace's `close` presses the window's Accessibility close button, so a
+# window that has no close button cannot be closed that way — `close` exits 0,
+# moves focus, and leaves the window standing. Alacritty with the
+# decorations = "none" the installer recommends is exactly that window, which
+# is why Super+W looked dead on terminals and worked everywhere else.
+#
+# So ask first, and only hand the close to the app itself (Cmd+W) when there is
+# no button to press. Deciding up front rather than closing and checking after
+# matters: `close` moves focus whether or not it worked, so there is no state
+# to poll afterwards that distinguishes the two.
+set -uo pipefail
+
+AS="${AEROSPACE:-/opt/homebrew/bin/aerospace}"
+
+has_close_button="$(osascript -e '
+  tell application "System Events"
+    set p to first process whose frontmost is true
+    return ((value of attribute "AXCloseButton" of window 1 of p) is not missing value)
+  end tell' 2>/dev/null)"
+
+# Anything but a clear "no button" goes to AeroSpace: a window we could not ask
+# about is likelier to be an ordinary one than a decorationless one, and Cmd+W
+# closes a TAB in tabbed apps, which is not what Super+W means.
+if [[ "$has_close_button" == "false" ]]; then
+  osascript -e 'tell application "System Events" to keystroke "w" using {command down}'
+else
+  "$AS" close
+fi

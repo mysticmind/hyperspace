@@ -87,7 +87,10 @@ cmd-ctrl-alt-shift-enter = 'exec-and-forget open -a Firefox'   # browser
 cmd-ctrl-alt-space = 'exec-and-forget open -a Raycast'   # launcher
 
 # Close window (omarchy: Super+W)
-cmd-ctrl-alt-w = 'close'   # close window
+# Not a bare `close`: that presses the window's Accessibility close button, and
+# a decorations="none" window has none, so it is a silent no-op on terminals.
+# The script checks for the button first, and sends Cmd+W only when there is none.
+cmd-ctrl-alt-w = 'exec-and-forget $HOME/.local/bin/hyperspace-close'   # close window
 
 # Focus — arrows and vim keys both (omarchy: Super+Arrows)
 cmd-ctrl-alt-left = 'focus left'

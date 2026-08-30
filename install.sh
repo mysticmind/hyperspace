@@ -97,6 +97,7 @@ link "$REPO/config/borders/bordersrc" "$HOME/.config/borders/bordersrc"
 # Scripts the config and you both call by a stable path, so aerospace.toml
 # never has to know where the repo lives.
 link "$REPO/bin/cheatsheet-toggle" "$HOME/.local/bin/hyperspace-cheatsheet"
+link "$REPO/bin/close-window" "$HOME/.local/bin/hyperspace-close"
 link "$REPO/bin/doctor" "$HOME/.local/bin/hyperspace-doctor"
 link "$REPO/bin/plugin" "$HOME/.local/bin/hyperspace-plugin"
 

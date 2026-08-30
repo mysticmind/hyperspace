@@ -31,7 +31,7 @@ if [[ -f "$HOME/.local/state/hyperspace/enabled-plugins" ]]; then
 fi
 
 # Scripts we linked into ~/.local/bin, only when they still point at this repo.
-for b in hyperspace-cheatsheet hyperspace-doctor hyperspace-plugin; do
+for b in hyperspace-cheatsheet hyperspace-close hyperspace-doctor hyperspace-plugin; do
   t="$(readlink "$HOME/.local/bin/$b" 2>/dev/null || true)"
   case "$t" in "$REPO"/*) rm -f "$HOME/.local/bin/$b"; log "removed ~/.local/bin/$b" ;; esac
 done
