@@ -1,0 +1,25 @@
+{
+  "description": "Caps Lock -> Super (⌘⌃⌥) for AeroSpace",
+  "manipulators": [
+    {
+      "type": "basic",
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "optional": [
+            "any"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_command",
+          "modifiers": [
+            "left_control",
+            "left_option"
+          ]
+        }
+      ]
+    }
+  ]
+}

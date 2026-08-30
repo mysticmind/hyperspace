@@ -1,0 +1,180 @@
+# AeroSpace — Omarchy-style tiling. Super = Caps Lock (⌘⌃⌥ via Karabiner).
+# Native AeroSpace commands only: no helper daemons, no /tmp signalling.
+# Docs: https://nikitabobko.github.io/AeroSpace/guide
+
+config-version = 2
+
+start-at-login = true
+after-login-command = []
+after-startup-command = []
+
+# Let AeroSpace reap empty containers and keep the tree tidy. omacosy
+# turned these OFF to hand-roll a Hyprland-style dwindle layout via an
+# on-focus-changed hook; that hook was the main source of layout churn.
+# Stock normalization is what upstream tests, so it stays on.
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+accordion-padding = 30
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# Push a workspace update to SwiftBar the instant it changes — no polling.
+exec-on-workspace-change = ['/bin/bash', '-c',
+  'open -g "swiftbar://refreshplugin?name=aerospace"']
+
+[key-mapping]
+preset = 'qwerty'
+
+[gaps]
+# Tight: no gaps anywhere. Windows meet edge to edge and run to the
+# physical edges of the display.
+inner.horizontal = 0
+inner.vertical = 0
+outer.left = 0
+outer.bottom = 0
+outer.right = 0
+# 0, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
+# macOS report visibleFrame as the FULL display height — so windows also
+# reclaim the 30pt menu bar strip.
+# Do not try a negative gap to tile under a *visible* menu bar: macOS clamps
+# windows out of that strip and you get an inconsistent layout (measured).
+# NOTE: toggling the menu bar or Dock needs an AeroSpace RESTART, not just
+# reload-config — it does not recompute screen geometry on that change.
+outer.top = 0
+
+# --- Floats: fixed-size windows fight the tiler ------------------------------
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'org.pqrs.Karabiner-Elements.Settings'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+if.window-title-regex-substring = 'Copy'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.jordanbaird.Ice'
+run = 'layout floating'
+
+# --- Omarchy's map ----------------------------------------------------------
+# Two layers: Super for window management, Super+Shift for moving and apps.
+[mode.main.binding]
+
+# Terminal / browser (omarchy: Super+Return, Super+Shift+Return)
+cmd-ctrl-alt-enter = 'exec-and-forget open -na Alacritty'
+cmd-ctrl-alt-shift-enter = 'exec-and-forget open -a Firefox'
+
+# Launcher (omarchy: Super+Space)
+cmd-ctrl-alt-space = 'exec-and-forget open -a Raycast'
+
+# Close window (omarchy: Super+W)
+cmd-ctrl-alt-w = 'close'
+
+# Focus — arrows and vim keys both (omarchy: Super+Arrows)
+cmd-ctrl-alt-left = 'focus left'
+cmd-ctrl-alt-down = 'focus down'
+cmd-ctrl-alt-up = 'focus up'
+cmd-ctrl-alt-right = 'focus right'
+cmd-ctrl-alt-h = 'focus left'
+cmd-ctrl-alt-j = 'focus down'
+cmd-ctrl-alt-k = 'focus up'
+cmd-ctrl-alt-l = 'focus right'
+
+# Move windows (omarchy: Super+Shift+Arrows)
+cmd-ctrl-alt-shift-left = 'move left'
+cmd-ctrl-alt-shift-down = 'move down'
+cmd-ctrl-alt-shift-up = 'move up'
+cmd-ctrl-alt-shift-right = 'move right'
+cmd-ctrl-alt-shift-h = 'move left'
+cmd-ctrl-alt-shift-j = 'move down'
+cmd-ctrl-alt-shift-k = 'move up'
+cmd-ctrl-alt-shift-l = 'move right'
+
+# Layout (omarchy: Super+T float, Super+E split toggle, Super+F fullscreen)
+cmd-ctrl-alt-t = 'layout floating tiling'
+cmd-ctrl-alt-e = 'layout horizontal vertical'   # togglesplit: flip orientation
+cmd-ctrl-alt-a = 'layout tiles accordion'
+cmd-ctrl-alt-f = 'fullscreen --no-outer-gaps'
+cmd-ctrl-alt-n = 'macos-native-fullscreen'
+cmd-ctrl-alt-comma = 'balance-sizes'
+
+# Resize (omarchy: Super+Minus / Super+Equal)
+cmd-ctrl-alt-minus = 'resize smart -50'
+cmd-ctrl-alt-equal = 'resize smart +50'
+
+# Workspaces (omarchy: Super+N)
+cmd-ctrl-alt-1 = 'workspace 1'
+cmd-ctrl-alt-2 = 'workspace 2'
+cmd-ctrl-alt-3 = 'workspace 3'
+cmd-ctrl-alt-4 = 'workspace 4'
+cmd-ctrl-alt-5 = 'workspace 5'
+cmd-ctrl-alt-6 = 'workspace 6'
+cmd-ctrl-alt-7 = 'workspace 7'
+cmd-ctrl-alt-8 = 'workspace 8'
+cmd-ctrl-alt-9 = 'workspace 9'
+
+# Move window to workspace (omarchy: Super+Shift+N)
+cmd-ctrl-alt-shift-1 = 'move-node-to-workspace 1 --focus-follows-window'
+cmd-ctrl-alt-shift-2 = 'move-node-to-workspace 2 --focus-follows-window'
+cmd-ctrl-alt-shift-3 = 'move-node-to-workspace 3 --focus-follows-window'
+cmd-ctrl-alt-shift-4 = 'move-node-to-workspace 4 --focus-follows-window'
+cmd-ctrl-alt-shift-5 = 'move-node-to-workspace 5 --focus-follows-window'
+cmd-ctrl-alt-shift-6 = 'move-node-to-workspace 6 --focus-follows-window'
+cmd-ctrl-alt-shift-7 = 'move-node-to-workspace 7 --focus-follows-window'
+cmd-ctrl-alt-shift-8 = 'move-node-to-workspace 8 --focus-follows-window'
+cmd-ctrl-alt-shift-9 = 'move-node-to-workspace 9 --focus-follows-window'
+
+# Workspace navigation (omarchy: Super+Tab / Super+Shift+Tab)
+cmd-ctrl-alt-tab = 'workspace next --wrap-around'
+cmd-ctrl-alt-shift-tab = 'workspace prev --wrap-around'
+# Back-and-forth. Omarchy puts this on Super+Ctrl+Tab, which cannot be
+# expressed here: Super IS ⌘⌃⌥, so ctrl and alt are already spent and
+# Shift is the only free layer.
+cmd-ctrl-alt-b = 'workspace-back-and-forth'
+
+# Cycle windows WITHIN the workspace (omarchy: Alt+Tab). macOS's own
+# Cmd+Tab switches APPS, so nothing else reaches a third window here.
+alt-tab = 'focus dfs-next --boundaries workspace --boundaries-action wrap-around-the-workspace'
+alt-shift-tab = 'focus dfs-prev --boundaries workspace --boundaries-action wrap-around-the-workspace'
+
+# Monitors
+ctrl-alt-tab = 'focus-monitor next --wrap-around'
+cmd-ctrl-alt-shift-o = 'move-node-to-monitor next --wrap-around --focus-follows-window'
+cmd-ctrl-alt-shift-space = 'move-workspace-to-monitor next --wrap-around'
+
+# Apps (omarchy: Super+Shift+letter)
+cmd-ctrl-alt-shift-f = 'exec-and-forget open ~'
+cmd-ctrl-alt-shift-m = 'exec-and-forget open -a Spotify'
+cmd-ctrl-alt-shift-g = 'exec-and-forget open -a Slack'
+
+# Lock the screen. Omarchy uses Super+Ctrl+L; ctrl is spent (Super IS ⌘⌃⌥)
+# and Super+Shift+L is the vim 'move right', so lock lives on Super+Esc.
+cmd-ctrl-alt-esc = 'exec-and-forget pmset displaysleepnow'
+
+# Modes
+cmd-ctrl-alt-r = 'mode resize'
+cmd-ctrl-alt-shift-semicolon = 'mode service'
+
+[mode.resize.binding]
+h = 'resize width -50'
+j = 'resize height +50'
+k = 'resize height -50'
+l = 'resize width +50'
+minus = 'resize smart -50'
+equal = 'resize smart +50'
+b = ['balance-sizes', 'mode main']
+enter = 'mode main'
+esc = 'mode main'
+
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main']
+f = ['layout floating tiling', 'mode main']
+backspace = ['close-all-windows-but-current', 'mode main']

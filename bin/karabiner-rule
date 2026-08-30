@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Add or remove hyperspace's Caps->Super rule in an EXISTING karabiner.json.
+
+Deliberately surgical: every other rule, every device block and every
+simple modification you already had is left exactly as it was. The one
+exception is documented in `remove_shadowing_caps_mods` below, and what
+it removes is recorded so `uninstall` can put it back.
+
+Usage: karabiner-rule (install|uninstall) [--config PATH] [--state PATH]
+"""
+import argparse, json, pathlib, shutil, sys, datetime
+
+RULE_MARK = "Caps Lock -> Super"
+
+
+def load(p):
+    return json.loads(p.read_text())
+
+
+def save(p, d):
+    p.write_text(json.dumps(d, indent=4, ensure_ascii=False) + "\n")
+
+
+def remove_shadowing_caps_mods(prof, state):
+    """Simple modifications on caps_lock shadow the complex rule, so caps
+    must be free for Super to work at all. Record whatever we take away."""
+    removed = []
+    for sm in list(prof.get("simple_modifications", [])):
+        if sm.get("from", {}).get("key_code") == "caps_lock":
+            removed.append({"scope": "profile", "mod": sm})
+            prof["simple_modifications"].remove(sm)
+    for dev in prof.get("devices", []):
+        for sm in list(dev.get("simple_modifications", [])):
+            if sm.get("from", {}).get("key_code") == "caps_lock":
+                removed.append({"scope": "device", "ids": dev["identifiers"], "mod": sm})
+                dev["simple_modifications"].remove(sm)
+    state["removed_caps_mods"] = removed
+    return removed
+
+
+def install(cfg, rule_path, state_path):
+    if not cfg.exists():
+        sys.exit(f"no karabiner.json at {cfg} — launch Karabiner-Elements once first")
+    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
+    shutil.copy(cfg, backup)
+
+    d, rule, state = load(cfg), json.loads(rule_path.read_text()), {"backup": str(backup)}
+    prof = d["profiles"][0]
+    removed = remove_shadowing_caps_mods(prof, state)
+
+    rules = prof.setdefault("complex_modifications", {}).setdefault("rules", [])
+    rules[:] = [r for r in rules if RULE_MARK not in r.get("description", "")]
+    rules.insert(0, rule)
+
+    # Karabiner needs exactly one profile flagged selected.
+    for i, pr in enumerate(d["profiles"]):
+        pr["selected"] = (i == 0)
+
+    save(cfg, d)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, indent=2) + "\n")
+
+    print(f"karabiner: Caps Lock -> Super installed (backup: {backup.name})")
+    for r in removed:
+        to = r["mod"]["to"][0].get("key_code")
+        where = "profile" if r["scope"] == "profile" else f"device {r['ids']}"
+        print(f"  NOTE removed shadowing simple modification on {where}: caps_lock -> {to}")
+
+
+def uninstall(cfg, state_path):
+    if not cfg.exists():
+        print("karabiner: no config, nothing to do"); return
+    d = load(cfg)
+    prof = d["profiles"][0]
+    rules = prof.get("complex_modifications", {}).get("rules", [])
+    before = len(rules)
+    rules[:] = [r for r in rules if RULE_MARK not in r.get("description", "")]
+    print(f"karabiner: removed {before - len(rules)} hyperspace rule(s)")
+
+    if state_path.exists():
+        state = json.loads(state_path.read_text())
+        for r in state.get("removed_caps_mods", []):
+            if r["scope"] == "profile":
+                prof.setdefault("simple_modifications", []).append(r["mod"])
+                print(f"  restored profile simple modification: caps_lock -> {r['mod']['to'][0].get('key_code')}")
+            else:
+                for dev in prof.get("devices", []):
+                    if dev.get("identifiers") == r["ids"]:
+                        dev.setdefault("simple_modifications", []).append(r["mod"])
+                        print(f"  restored device simple modification: caps_lock -> {r['mod']['to'][0].get('key_code')}")
+        state_path.unlink()
+    save(cfg, d)
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("action", choices=["install", "uninstall"])
+    ap.add_argument("--config", default=str(pathlib.Path.home()/".config/karabiner/karabiner.json"))
+    ap.add_argument("--rule", default=str(pathlib.Path(__file__).parent.parent/"config/karabiner/caps-to-super.json"))
+    ap.add_argument("--state", default=str(pathlib.Path.home()/".local/state/hyperspace/karabiner.json"))
+    a = ap.parse_args()
+    if a.action == "install":
+        install(pathlib.Path(a.config), pathlib.Path(a.rule), pathlib.Path(a.state))
+    else:
+        uninstall(pathlib.Path(a.config), pathlib.Path(a.state))

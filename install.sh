@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# hyperspace — AeroSpace + Caps-Lock-as-Super + SwiftBar in the native menu bar.
+#
+# Design rules, learned the hard way from a setup that broke all of them:
+#   1. Never touch ~/.zshrc or any shell config. This repo is not a dotfiles manager.
+#   2. Never uninstall Homebrew packages on teardown. Not even ones we installed.
+#   3. Back up anything real we displace, and record it, so uninstall can restore
+#      exactly that instead of guessing.
+#   4. Symlink individual FILES, not whole directories, so other tools' configs
+#      in the same directory keep working.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STATE="$HOME/.local/state/hyperspace"
+MANIFEST="$STATE/manifest"
+STAMP="$(date +%Y%m%d%H%M%S)"
+mkdir -p "$STATE"; touch "$MANIFEST"
+
+log()  { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m warn\033[0m %s\n' "$*"; }
+note() { printf '      %s\n' "$*"; }
+
+[[ "$(uname -s)" == "Darwin" ]] || { echo "macOS only"; exit 1; }
+command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 1; }
+BREW_PREFIX="$(brew --prefix)"
+
+# --- 1. Dependencies --------------------------------------------------------
+log "Installing dependencies from Brewfile"
+brew bundle --file="$REPO/Brewfile"
+
+# --- 2. Link configs --------------------------------------------------------
+# link <source in repo> <destination>
+link() {
+  local src="$1" dst="$2"
+  mkdir -p "$(dirname "$dst")"
+  if [[ -L "$dst" ]]; then
+    local cur; cur="$(readlink "$dst")"
+    [[ "$cur" == "$src" ]] && { note "already linked: ${dst/#$HOME/\~}"; return; }
+    # Someone else's symlink (a dotfiles manager). Record it so we can put it back.
+    printf 'prior-symlink\t%s\t%s\n' "$dst" "$cur" >> "$MANIFEST"
+    rm "$dst"
+  elif [[ -e "$dst" ]]; then
+    local bak="$dst.bak.hyperspace.$STAMP"
+    mv "$dst" "$bak"
+    printf 'backup\t%s\t%s\n' "$dst" "$bak" >> "$MANIFEST"
+    note "backed up existing ${dst/#$HOME/\~} -> $(basename "$bak")"
+  fi
+  ln -sfn "$src" "$dst"
+  printf 'link\t%s\n' "$dst" >> "$MANIFEST"
+  log "linked ${dst/#$HOME/\~}"
+}
+
+link "$REPO/config/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
+link "$REPO/config/swiftbar/aerospace.10s.sh" "$HOME/.config/swiftbar/aerospace.10s.sh"
+link "$REPO/config/borders/bordersrc" "$HOME/.config/borders/bordersrc"
+
+# --- 3. Karabiner: merge one rule into whatever you already have ------------
+log "Adding the Caps Lock -> Super rule to your existing karabiner.json"
+"$REPO/bin/karabiner-rule" install --rule "$REPO/config/karabiner/caps-to-super.json"
+
+# --- 4. Menu bar auto-hide --------------------------------------------------
+# This is what actually lets windows use the full display height: with the menu
+# bar auto-hidden macOS reports visibleFrame as the FULL screen, so AeroSpace
+# tiles all of it. With the bar visible, macOS clamps windows out of that strip
+# and no gap setting can reclaim it.
+record_default() { # domain key
+  grep -q "^default $1 $2 " "$MANIFEST" && return 0
+  local t v
+  if v="$(defaults read "$1" "$2" 2>/dev/null)"; then
+    t="$(defaults read-type "$1" "$2" 2>/dev/null | awk '{print $3}')"
+    printf 'default %s %s %s %s\n' "$1" "$2" "${t:-string}" "$v" >> "$MANIFEST"
+  else
+    printf 'default %s %s ABSENT ABSENT\n' "$1" "$2" >> "$MANIFEST"
+  fi
+}
+record_default NSGlobalDomain _HIHideMenuBar
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
+killall cfprefsd 2>/dev/null || true
+log "Menu bar set to auto-hide (windows reclaim the 30pt strip)"
+
+# --- 5. SwiftBar plugin directory -------------------------------------------
+record_default com.ameba.SwiftBar PluginDirectory
+defaults write com.ameba.SwiftBar PluginDirectory -string "$HOME/.config/swiftbar"
+log "SwiftBar plugin directory -> ~/.config/swiftbar"
+
+# --- 6. Start everything ----------------------------------------------------
+# AeroSpace LAST and always restarted: it does not recompute screen geometry
+# when the menu bar visibility changes, so it must start after step 4.
+log "Starting services"
+brew services start FelixKratz/formulae/borders >/dev/null 2>&1 || warn "borders service failed to start"
+open -a SwiftBar 2>/dev/null || warn "SwiftBar failed to launch"
+open -a Ice 2>/dev/null || warn "Ice failed to launch"
+killall AeroSpace 2>/dev/null || true
+sleep 2
+open -a AeroSpace 2>/dev/null || warn "AeroSpace failed to launch"
+
+cat <<EOF
+
+$(printf '\033[1;32mDone.\033[0m') Super = Caps Lock (⌘⌃⌥). Super+Return opens a terminal.
+
+Steps this script cannot do for you:
+  - Grant Accessibility to AeroSpace and Karabiner when macOS asks.
+  - Turn on "Launch at Login" in SwiftBar and Ice preferences. Both use
+    SMAppService, which is not settable from a shell. AeroSpace and borders
+    handle their own login start.
+  - The full keybinding list is in the SwiftBar menu (Cheatsheet) and README.md.
+
+Homebrew packages are NOT removed by uninstall.sh, by design. See README.
+EOF

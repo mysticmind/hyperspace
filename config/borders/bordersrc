@@ -1,0 +1,12 @@
+#!/bin/bash
+# JankyBorders — a thin ring around the focused window only.
+# Launched by `brew services start borders`; this file is executed by the
+# daemon on startup and messages the options across.
+options=(
+  style=round
+  width=2.0
+  hidpi=off
+  active_color=0xff7aa2f7    # focused: soft blue
+  inactive_color=0x00000000  # unfocused: fully transparent — no ring at all
+)
+borders "${options[@]}"
