@@ -2,11 +2,20 @@
 # JankyBorders — a thin ring around the focused window only.
 # Launched by `brew services start borders`; this file is executed by the
 # daemon on startup and messages the options across.
+#
+# Prominence without thickness: the colour does the work, not the width.
+#   hidpi=on   renders at native Retina resolution instead of a scaled 1x
+#              line, so 3pt reads crisp rather than soft. This is most of
+#              the difference — a sharp thin line looks stronger than a
+#              blurry thick one.
+#   gradient   catches the eye along the length of the edge. Both stops are
+#              from the terminal theme (purple cursor -> cyan blue).
+#              For a flat colour instead:  active_color=0xff9580ff
 options=(
   style=round
-  width=2.0
-  hidpi=off
-  active_color=0xff7aa2f7    # focused: soft blue
-  inactive_color=0x00000000  # unfocused: fully transparent — no ring at all
+  width=3.0
+  hidpi=on
+  active_color="gradient(top_left=0xff9580ff,bottom_right=0xff57c7ff)"
+  inactive_color=0x00000000   # unfocused: fully transparent, no ring at all
 )
 borders "${options[@]}"
