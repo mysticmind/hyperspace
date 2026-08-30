@@ -22,13 +22,36 @@ fi
 
 [[ -x "$TERM_BIN" ]] || { echo "Alacritty not found at $TERM_BIN" >&2; exit 1; }
 
+# Centre it. AeroSpace cannot place a floating window, and Alacritty otherwise
+# lands wherever macOS cascades it — which put the sheet partly off the top of
+# the screen. Finder's desktop bounds give the display size with no special
+# permission; the glyph constants are measured for JetBrains Mono at size 14.
+COLS=66; LINES=44
+read -r SW SH < <(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
+                  | awk -F', ' '{print $3, $4}')
+: "${SW:=1440}" "${SH:=900}"
+# Alacritty's window.position is in PHYSICAL pixels while Finder reports
+# points, so the centred point coordinates are scaled by the display's backing
+# factor (2 on Retina). Measured: requesting x=441 landed the window at x=220pt.
+SCALE="${HYPERSPACE_SCALE:-2}"
+read -r POS_X POS_Y < <(awk -v sw="$SW" -v sh="$SH" -v c="$COLS" -v l="$LINES" -v k="$SCALE" \
+  'BEGIN { w = c * 8.45; h = l * 19.1;
+           x = (sw - w) / 2; y = (sh - h) / 2;
+           if (x < 0) x = 0; if (y < 0) y = 0;
+           print int(x * k), int(y * k) }')
+
 # startup_mode is overridden because a user config may set Maximized, which
 # would make the sheet fill the screen instead of floating small.
-"$TERM_BIN" --title "$TITLE" \
+# nohup + disown: without them the terminal is a child of this script and dies
+# with it the moment the script returns, so the window flashes and vanishes.
+nohup "$TERM_BIN" --title "$TITLE" \
   -o 'window.startup_mode="Windowed"' \
-  -o 'window.dimensions.columns=66' \
-  -o 'window.dimensions.lines=44' \
+  -o "window.dimensions.columns=$COLS" \
+  -o "window.dimensions.lines=$LINES" \
+  -o "window.position.x=$POS_X" \
+  -o "window.position.y=$POS_Y" \
   -o 'window.padding.x=14' \
   -o 'window.padding.y=14' \
   -e /bin/bash -c "'$SHEET'; printf '  press any key to close '; read -rsn1" \
   >/dev/null 2>&1 &
+disown

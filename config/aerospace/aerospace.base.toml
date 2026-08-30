@@ -32,21 +32,24 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 preset = 'qwerty'
 
 [gaps]
-# Tight: no gaps anywhere. Windows meet edge to edge and run to the
-# physical edges of the display.
-inner.horizontal = 0
-inner.vertical = 0
-outer.left = 0
-outer.bottom = 0
-outer.right = 0
-# 0, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
+# Tight, but not tighter than the focus ring can survive. JankyBorders draws
+# its ring OUTSIDE the window frame, so at 0 the ring on any edge touching the
+# display border is drawn off-screen and vanishes. These are the minimum that
+# keep all four edges visible: outer = ring width, inner = twice it (each
+# neighbour needs its own side). Raise the ring width and raise these to match.
+inner.horizontal = 8
+inner.vertical = 8
+outer.left = 4
+outer.bottom = 4
+outer.right = 4
+# 4, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
 # macOS report visibleFrame as the FULL display height — so windows also
 # reclaim the 30pt menu bar strip.
 # Do not try a negative gap to tile under a *visible* menu bar: macOS clamps
 # windows out of that strip and you get an inconsistent layout (measured).
 # NOTE: toggling the menu bar or Dock needs an AeroSpace RESTART, not just
 # reload-config — it does not recompute screen geometry on that change.
-outer.top = 0
+outer.top = 4
 
 # --- Floats: fixed-size windows fight the tiler ------------------------------
 [[on-window-detected]]
