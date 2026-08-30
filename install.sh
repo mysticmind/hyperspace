@@ -24,6 +24,14 @@ note() { printf '      %s\n' "$*"; }
 command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 1; }
 BREW_PREFIX="$(brew --prefix)"
 
+# --- 0. Preflight -----------------------------------------------------------
+# A macOS Caps Lock remap (System Settings -> Keyboard -> Modifier Keys)
+# consumes the key before Karabiner ever sees it, so `from: caps_lock` never
+# matches and EVERY binding silently does nothing — with a perfectly correct
+# config on disk. Catch it here rather than letting it look like a broken setup.
+log "Preflight"
+"$REPO/bin/doctor" --caps-only --fix || true
+
 # --- 1. Dependencies --------------------------------------------------------
 # brew bundle is NOT fatal: the Brewfile carries one optional item (the Nerd
 # Font), and a font cask fails outright if you already installed those fonts

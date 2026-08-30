@@ -201,6 +201,7 @@ Brewfile                          dependencies
 install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
 bin/login-agent                   launch-at-login for SwiftBar and Ice
+bin/doctor                        diagnose the three layers when a chord does nothing
 config/aerospace/aerospace.toml   the window manager
 config/swiftbar/aerospace.10s.sh  menu bar plugin: pills, switcher, cheatsheet
 config/borders/bordersrc          focused-window ring
