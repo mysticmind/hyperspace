@@ -82,6 +82,11 @@ plugins/<name>/
   uninstall.sh       run on disable                              (optional)
 ```
 
+A plugin can reach past AeroSpace: the `dictation` plugin ships
+`karabiner-rules.json` and uses its `install.sh` hook to merge those rules
+into your Karabiner config through `bin/karabiner-rule`, which is why the
+plugin model needs hooks at all.
+
 ```sh
 hyperspace-plugin list
 hyperspace-plugin enable volume screenshot
@@ -135,6 +140,7 @@ fails to build.
 |---|---|
 | `volume` | `Super+[` / `Super+]` volume, `Super+\` mute — uses AeroSpace's native `volume` command, no dependencies |
 | `screenshot` | `Super+P` region to clipboard, `Super+Shift+P` region to file |
+| `dictation` | [Handy](https://handy.computer): **Right Option held** = push-to-talk, **Super+D** = toggle start/stop |
 | `spotify` | now playing in the menu bar with transport controls; `Super+Shift+,` / `.` prev/next, `Super+Shift+\\` play-pause |
 
 ## Your terminal's title bar
@@ -264,6 +270,19 @@ aerospace trigger-binding --mode main cmd-ctrl-alt-e   # does the binding work?
 
 If all three succeed but the physical chord does nothing, the problem is key
 delivery — Karabiner or a conflicting global hotkey — not AeroSpace.
+
+**Handy has one global dictation mode, not one per binding.** `push_to_talk`
+in its `settings_store.json` makes the transcribe binding *either* hold-to-talk
+*or* tap-to-toggle — you cannot have both from Handy alone. The `dictation`
+plugin puts Handy in toggle mode and emulates push-to-talk in Karabiner by
+sending the chord on key-down **and again on key-up**, so holding brackets the
+recording. That is how both behaviours coexist.
+
+**Karabiner uses the first rule that matches a key.** New rules are inserted at
+the front of the list, which shadows any pre-existing rule on the same key
+rather than deleting it — uninstall removes ours and yours starts working
+again. It also means the Caps Lock -> Super rule must stay above anything that
+matches a Super chord.
 
 **The key is named `esc`, not `escape`.**
 

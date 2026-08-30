@@ -1,0 +1,26 @@
+[
+  {
+    "description": "Handy: Super+D toggles dictation (hyperspace dictation)",
+    "manipulators": [
+      {
+        "type": "basic",
+        "from": {
+          "key_code": "d",
+          "modifiers": { "mandatory": ["left_command", "left_control", "left_option"] }
+        },
+        "to": [{ "key_code": "f19", "modifiers": ["fn"] }]
+      }
+    ]
+  },
+  {
+    "description": "Handy: Right Option held = push-to-talk (hyperspace dictation)",
+    "manipulators": [
+      {
+        "type": "basic",
+        "from": { "key_code": "right_option", "modifiers": { "optional": ["any"] } },
+        "to": [{ "key_code": "f19", "modifiers": ["fn"] }],
+        "to_after_key_up": [{ "key_code": "f19", "modifiers": ["fn"] }]
+      }
+    ]
+  }
+]

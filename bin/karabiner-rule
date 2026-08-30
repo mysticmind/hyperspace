@@ -10,7 +10,15 @@ Usage: karabiner-rule (install|uninstall) [--config PATH] [--state PATH]
 """
 import argparse, json, pathlib, shutil, sys, datetime
 
-RULE_MARK = "Caps Lock -> Super"
+def load_rules(rule_path):
+    """A rule file may hold one rule object or a list of them."""
+    data = json.loads(rule_path.read_text())
+    return data if isinstance(data, list) else [data]
+
+
+def touches_caps(rules):
+    return any(m.get("from", {}).get("key_code") == "caps_lock"
+               for r in rules for m in r.get("manipulators", []))
 
 
 def load(p):
@@ -45,13 +53,22 @@ def install(cfg, rule_path, state_path):
     backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
     shutil.copy(cfg, backup)
 
-    d, rule, state = load(cfg), json.loads(rule_path.read_text()), {"backup": str(backup)}
+    d, new_rules, state = load(cfg), load_rules(rule_path), {"backup": str(backup)}
     prof = d["profiles"][0]
-    removed = remove_shadowing_caps_mods(prof, state)
+    # Only a rule that actually binds caps_lock needs the simple modifications
+    # on caps cleared out from under it.
+    removed = remove_shadowing_caps_mods(prof, state) if touches_caps(new_rules) else []
+    state["descriptions"] = [r.get("description", "") for r in new_rules]
 
     rules = prof.setdefault("complex_modifications", {}).setdefault("rules", [])
-    rules[:] = [r for r in rules if RULE_MARK not in r.get("description", "")]
-    rules.insert(0, rule)
+    marks = set(state["descriptions"])
+    rules[:] = [r for r in rules if r.get("description", "") not in marks]
+    # Insert at the FRONT: Karabiner uses the first manipulator that matches a
+    # key, so ours must precede any pre-existing rule on the same key. That
+    # shadows the user's rule rather than deleting it — uninstall removes ours
+    # and theirs starts working again.
+    for r in reversed(new_rules):
+        rules.insert(0, r)
 
     # Karabiner needs exactly one profile flagged selected.
     for i, pr in enumerate(d["profiles"]):
@@ -61,22 +78,34 @@ def install(cfg, rule_path, state_path):
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(json.dumps(state, indent=2) + "\n")
 
-    print(f"karabiner: Caps Lock -> Super installed (backup: {backup.name})")
+    for desc in state["descriptions"]:
+        print(f"karabiner: installed rule '{desc}'")
+    print(f"  backup: {backup.name}")
     for r in removed:
         to = r["mod"]["to"][0].get("key_code")
         where = "profile" if r["scope"] == "profile" else f"device {r['ids']}"
         print(f"  NOTE removed shadowing simple modification on {where}: caps_lock -> {to}")
 
 
-def uninstall(cfg, state_path):
+def uninstall(cfg, state_path, rule_path=None):
     if not cfg.exists():
         print("karabiner: no config, nothing to do"); return
     d = load(cfg)
     prof = d["profiles"][0]
     rules = prof.get("complex_modifications", {}).get("rules", [])
+
+    marks = set()
+    if state_path.exists():
+        marks |= set(json.loads(state_path.read_text()).get("descriptions", []))
+    if rule_path and pathlib.Path(rule_path).exists():
+        marks |= {r.get("description", "") for r in load_rules(pathlib.Path(rule_path))}
+    if not marks:                       # pre-generalisation installs
+        marks = {"Caps Lock -> Super"}
+
     before = len(rules)
-    rules[:] = [r for r in rules if RULE_MARK not in r.get("description", "")]
-    print(f"karabiner: removed {before - len(rules)} hyperspace rule(s)")
+    rules[:] = [r for r in rules
+                if not any(m and m in r.get("description", "") for m in marks)]
+    print(f"karabiner: removed {before - len(rules)} rule(s)")
 
     if state_path.exists():
         state = json.loads(state_path.read_text())
@@ -103,4 +132,4 @@ if __name__ == "__main__":
     if a.action == "install":
         install(pathlib.Path(a.config), pathlib.Path(a.rule), pathlib.Path(a.state))
     else:
-        uninstall(pathlib.Path(a.config), pathlib.Path(a.state))
+        uninstall(pathlib.Path(a.config), pathlib.Path(a.state), a.rule)
