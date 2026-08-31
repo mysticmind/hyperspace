@@ -37,19 +37,19 @@ preset = 'qwerty'
 # display border is drawn off-screen and vanishes. These are the minimum that
 # keep all four edges visible: outer = ring width, inner = twice it (each
 # neighbour needs its own side). Raise the ring width and raise these to match.
-inner.horizontal = 8
-inner.vertical = 8
-outer.left = 4
-outer.bottom = 4
-outer.right = 4
-# 4, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
+inner.horizontal = 12
+inner.vertical = 12
+outer.left = 6
+outer.bottom = 6
+outer.right = 6
+# 6, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
 # macOS report visibleFrame as the FULL display height — so windows also
 # reclaim the 30pt menu bar strip.
 # Do not try a negative gap to tile under a *visible* menu bar: macOS clamps
 # windows out of that strip and you get an inconsistent layout (measured).
 # NOTE: toggling the menu bar or Dock needs an AeroSpace RESTART, not just
 # reload-config — it does not recompute screen geometry on that change.
-outer.top = 4
+outer.top = 6
 
 # --- Floats: fixed-size windows fight the tiler ------------------------------
 [[on-window-detected]]

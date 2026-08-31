@@ -173,8 +173,12 @@ $(printf '\033[1;32mDone.\033[0m') Super = Caps Lock (⌘⌃⌥). Super+Return o
 Steps this script cannot do for you:
   - Grant Accessibility to AeroSpace and Karabiner when macOS asks.
   - Hide your terminal's title bar, if you want the traffic lights gone:
-    Alacritty  ~/.config/alacritty/alacritty.toml   decorations = "none"
+    Alacritty  ~/.config/alacritty/alacritty.toml   decorations = "Buttonless"
     Ghostty    ~/.config/ghostty/config             window-decoration = false
+    Prefer the setting that keeps the native frame (Alacritty's Buttonless
+    hides the buttons but keeps it). Dropping the frame outright, as
+    Alacritty's decorations = "none" does, squares the window corners, and
+    the focus ring is round, so it cuts across them.
     Your terminal config is yours; this repo does not touch it.
   - The full keybinding list is on Super+K, in the SwiftBar menu, and README.md.
 
