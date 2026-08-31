@@ -91,27 +91,34 @@ for t in want:
 TRUST
 }
 
-missing_trust="$(untrusted_taps)"
-if [[ -n "$missing_trust" ]]; then
+# An array, not a string. Passing the list as an unquoted `$(...)` relies on
+# word splitting, which is what SC2046 objects to and is genuinely fragile: a
+# tap name with a space would silently become two arguments. Built with a read
+# loop rather than mapfile, which macOS's bash 3.2 does not have.
+untrusted=()
+while IFS= read -r t; do
+  [[ -n "$t" ]] && untrusted+=("$t")
+done < <(untrusted_taps)
+
+if (( ${#untrusted[@]} )); then
   log "Third-party taps needing your trust"
-  while read -r t; do [[ -n "$t" ]] && note "$t"; done <<< "$missing_trust"
+  for t in "${untrusted[@]}"; do note "$t"; done
   note "Homebrew will not load a cask from these until they are trusted."
   note "Trusting a tap means agreeing to run code its maintainer publishes."
   if (( DRY )); then
-    would "brew trust $(echo "$missing_trust" | xargs)"
+    would "brew trust ${untrusted[*]}"
   elif [[ -t 0 ]]; then
     read -r -p "      trust them now? [y/N] " reply
     if [[ "$reply" =~ ^[Yy] ]]; then
-      # shellcheck disable=SC2086
-      brew trust $(echo "$missing_trust" | xargs) || warn "brew trust failed"
+      brew trust "${untrusted[@]}" || warn "brew trust failed"
     else
       echo "Not trusted, so the install cannot continue. To do it yourself:"
-      echo "  brew trust $(echo "$missing_trust" | xargs)"
+      echo "  brew trust ${untrusted[*]}"
       exit 1
     fi
   else
     echo "Not a terminal, so this cannot ask. Run:"
-    echo "  brew trust $(echo "$missing_trust" | xargs)"
+    echo "  brew trust ${untrusted[*]}"
     echo "then re-run install.sh."
     exit 1
   fi
