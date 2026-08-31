@@ -84,8 +84,15 @@ run = 'layout floating'
 [mode.main.binding]
 
 # Terminal / browser (omarchy: Super+Return, Super+Shift+Return)
+# Both take -n, and the browser needs it as much as the terminal does. Plain
+# `open -a` only ACTIVATES the running app: with a browser window already open
+# on another workspace, macOS raises that window and AeroSpace follows it, so
+# the binding teleports you away instead of giving you a window here. -n asks
+# for a new instance, which Firefox and Chrome both answer by opening another
+# window in the instance already running - a new window on the workspace you
+# are on, which is the whole point of the key.
 cmd-ctrl-alt-enter = 'exec-and-forget open -na @TERMINAL@'   # terminal
-cmd-ctrl-alt-shift-enter = 'exec-and-forget open -a Firefox'   # browser
+cmd-ctrl-alt-shift-enter = 'exec-and-forget open -na Firefox'   # browser
 
 # Launcher (omarchy: Super+Space)
 cmd-ctrl-alt-space = 'exec-and-forget open -a Raycast'   # launcher
