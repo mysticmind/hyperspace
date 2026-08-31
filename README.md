@@ -6,13 +6,13 @@ replacing it.
 
 Zero gaps, edge to edge, with a thin ring on the focused window.
 
+![hyperspace: Alacritty and Firefox tiled edge to edge, zero gaps, thin ring on the focused window](docs/hyperspace.jpg)
+
 ```
-┌─────────────────────┬─────────────────────┐
-│                     │                     │   Super      = Caps Lock (⌘⌃⌥)
-│      Alacritty      │       Firefox       │   gaps       = 0
-│      720 x 899      │      720 x 899      │   ring       = 2pt, focused only
-│                     │                     │   menu bar   = auto-hide
-└─────────────────────┴─────────────────────┘
+Super      = Caps Lock (⌘⌃⌥)
+gaps       = 0
+ring       = 2pt, focused only
+menu bar   = auto-hide
 ```
 
 ## What it is
