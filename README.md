@@ -58,10 +58,23 @@ back, install it yourself - hyperspace no longer has an opinion about it.
 ## Install
 
 ```sh
-git clone <this repo> ~/oss_contrib/hyperspace
-cd ~/oss_contrib/hyperspace
+git clone <this repo> ~/.local/share/hyperspace
+cd ~/.local/share/hyperspace
 ./install.sh
 ```
+
+Clone it wherever you like. `install.sh` works out where it is from its own
+path, and everything it links points back at that location, so nothing here
+assumes a particular directory. `~/.local/share` is only the suggestion that
+matches where the rest of it already lives: `~/.local/bin` for the commands,
+`~/.local/state/hyperspace` for the manifest and backups, `~/.config` for the
+configs it links.
+
+One consequence worth knowing: the paths that point back are absolute, both the
+symlinks and the plugin paths `build-config` bakes into the generated
+`aerospace.toml`. **Move the repo after installing and both break.** Re-run
+`install.sh` from the new location to repoint them, or run `uninstall.sh`
+before you move it.
 
 Then grant Accessibility to AeroSpace and Karabiner when macOS asks. That is
 the only manual step - everything starts at login on its own.
