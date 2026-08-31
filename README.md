@@ -255,11 +255,13 @@ fails to build.
 | `dictation` | [Handy](https://handy.computer): **Right Option held** = push-to-talk, **Super+D** = toggle start/stop |
 | `media` | now playing in the menu bar with transport controls for whichever player is running; `Super+Shift+[` / `]` prev/next, `Super+Shift+\\` play-pause |
 
-## Which terminal Super+Return opens
+## Which terminal and browser those two keys open
 
-Whichever you have. `bin/terminal` resolves it and `build-config` bakes the
-answer into `aerospace.toml`, so the binding names a terminal that is actually
-installed rather than one this repo happens to prefer. First match wins:
+Whichever you have. `bin/terminal` and `bin/browser` resolve them and
+`build-config` bakes the answers into `aerospace.toml`, so neither binding names
+an app this machine does not have rather than one this repo happens to prefer.
+
+`Super+Return`, first match wins:
 
 ```
 $HYPERSPACE_TERMINAL                  one-off, or for a script
@@ -268,12 +270,38 @@ first installed of: Alacritty, Ghostty, kitty, WezTerm, iTerm
 Terminal                              ships with macOS, so there is always an answer
 ```
 
-`hyperspace-terminal` prints the current answer. Changing it takes a
-`build-config` and an `aerospace reload-config`, or just re-run `install.sh`.
+`Super+Shift+Return` asks macOS instead of guessing, because for a browser macOS
+already knows: whatever handles `http` is the one you chose.
 
-Note that hyperspace does not install a terminal. It used to hardcode
-Alacritty, which is not in the Brewfile, so on a machine without it
-`Super+Return` silently did nothing.
+```
+$HYPERSPACE_BROWSER                   one-off, or for a script
+~/.config/hyperspace/browser          a file with the app name, to open something
+                                      OTHER than your system default
+the macOS default browser             the http handler in LaunchServices
+first installed of: Firefox, Chrome, Brave, Edge, Vivaldi, Arc, Zen, Chromium
+Safari                                ships with macOS, so there is always an answer
+```
+
+The candidate list is the fallback for when LaunchServices cannot be read, not
+the primary mechanism. Change your default browser in System Settings and this
+binding follows it on the next `build-config`.
+
+An absent `http` entry is not a failure, it means Safari: macOS writes that
+entry only when you change the default away from Safari, so a stock Mac has
+none. Treating that as "unknown" is what would send a stock Mac down the
+candidate list to open whatever else happened to be installed.
+
+`hyperspace-terminal` and `hyperspace-browser` print the current answers.
+Changing either takes a `build-config` and an `aerospace reload-config`, or just
+re-run `install.sh`.
+
+Note that hyperspace installs neither. The terminal used to be hardcoded to
+Alacritty and the browser to Firefox, neither of which is in the Brewfile, so on
+a machine without them those bindings silently did nothing. The browser had a
+second failure on top of that: it was `open -a`, without `-n`, which only
+*activates* a running app - so if a browser window was already open on another
+workspace, macOS raised it and AeroSpace followed, and the key that should hand
+you a window here moved you somewhere else instead.
 
 ## Your terminal's title bar
 
@@ -467,7 +495,7 @@ Written down because the setup this replaced broke every one of them:
 
 ## Layout
 
-`bin/` is hand-written commands, not build output: thirteen executable scripts
+`bin/` is hand-written commands, not build output: fifteen executable scripts
 that `install.sh` symlinks onto your PATH as `hyperspace-*`, plus the two Swift
 sources beside the wrappers that compile them. Source sits next to whatever
 uses it here, the same way `plugins/media/` keeps `media-ctl` next to the menu
@@ -483,6 +511,7 @@ bin/doctor                        diagnose the three layers when a chord does no
 bin/restart                       restart Karabiner + AeroSpace when the stack is wedged
 bin/menubar                       show/hide the menu bar and make the tiling follow
 bin/terminal                      which terminal Super+Return opens
+bin/browser                       which browser Super+Shift+Return opens
 tests/properties.sh               the security guarantees, as tests
 tests/dryrun.sh                   proves --dry-run changes nothing
 tests/reversible.sh               install, uninstall, diff the machine (destructive)

@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Which browser Super+Shift+Return should open. Prints an app name, nothing else.
+#
+# It was hardcoded to Firefox, which is the same bug bin/terminal exists to
+# fix: `open -na Firefox` on a Mac without Firefox fails silently, so the
+# binding did nothing at all and said nothing about why.
+#
+# A browser needs less guessing than a terminal did, because macOS already
+# knows the answer. Whatever handles http is the browser this person chose,
+# and LaunchServices records it. So the candidate list here is not the primary
+# mechanism the way it is in bin/terminal - it is what happens when that
+# record cannot be read.
+#
+# Resolution, first match wins:
+#
+#   $HYPERSPACE_BROWSER            for a one-off or a script
+#   ~/.config/hyperspace/browser   a file holding the app name, if you want
+#                                  this binding to open something OTHER than
+#                                  your system default and have it stick
+#   the macOS default browser      the http URL scheme handler in LaunchServices
+#   the first of the list below that is actually installed
+#   Safari                         ships with macOS, so there is always an
+#                                  answer and Super+Shift+Return always works
+#
+# The name is whatever `open -a` accepts, which is the .app basename. Unlike a
+# terminal name it can contain a space - "Google Chrome", "Brave Browser" - so
+# every caller has to quote it. bin/build-config writes the binding with the
+# quotes already in it for that reason.
+set -uo pipefail
+
+CANDIDATES=(Firefox "Google Chrome" "Brave Browser" "Microsoft Edge" Vivaldi Arc Zen Chromium Safari)
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/hyperspace/browser"
+LS_PLIST="$HOME/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"
+
+installed() {
+  [[ -d "/Applications/$1.app" || -d "$HOME/Applications/$1.app" ]]
+}
+
+# The http handler, as a bundle id. Read with plistlib rather than by parsing
+# `defaults read` output: that prints LSHandlerRoleAll BEFORE the scheme it
+# belongs to, so scraping it means trusting the order of keys in a plist.
+#
+# An absent http entry is not a failure. macOS only writes one when you change
+# the default AWAY from Safari, so no entry means Safari, and saying so is what
+# keeps a stock Mac from falling through to the candidate list and opening
+# whatever else happens to be installed.
+default_bundle_id() {
+  [[ -f "$LS_PLIST" ]] || return 1
+  python3 - "$LS_PLIST" <<'PY' 2>/dev/null
+import plistlib, sys
+try:
+    with open(sys.argv[1], "rb") as fh:
+        handlers = plistlib.load(fh).get("LSHandlers", [])
+except Exception:
+    sys.exit(1)
+for h in handlers:
+    if h.get("LSHandlerURLScheme") == "http":
+        bundle = h.get("LSHandlerRoleAll") or h.get("LSHandlerRoleViewer")
+        if bundle:
+            print(bundle)
+            sys.exit(0)
+print("com.apple.Safari")
+PY
+}
+
+# Bundle id -> .app basename. Spotlight answers instantly when it is enabled;
+# when it is not - or the app is somewhere it does not index - fall back to
+# reading Info.plist out of the application directories, which is slower but
+# does not depend on a service that can be switched off. This runs at build
+# time, not on the keypress, so the scan costs nothing anyone waits for.
+app_name_for_bundle() {
+  local bundle="$1" path
+  path="$(mdfind "kMDItemCFBundleIdentifier == '$bundle'" 2>/dev/null | head -1)"
+  if [[ -z "$path" ]]; then
+    for dir in /Applications "$HOME/Applications" /System/Applications /Applications/Utilities; do
+      [[ -d "$dir" ]] || continue
+      for app in "$dir"/*.app; do
+        [[ -d "$app" ]] || continue
+        if [[ "$(defaults read "$app/Contents/Info" CFBundleIdentifier 2>/dev/null)" == "$bundle" ]]; then
+          path="$app"
+          break 2
+        fi
+      done
+    done
+  fi
+  [[ -n "$path" ]] || return 1
+  local name="${path##*/}"
+  printf '%s\n' "${name%.app}"
+}
+
+if [[ -n "${HYPERSPACE_BROWSER:-}" ]]; then
+  printf '%s\n' "$HYPERSPACE_BROWSER"
+  exit 0
+fi
+
+if [[ -f "$CONFIG" ]]; then
+  name="$(sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' "$CONFIG" | head -1)"
+  if [[ -n "$name" ]]; then
+    printf '%s\n' "$name"
+    exit 0
+  fi
+fi
+
+if bundle="$(default_bundle_id)" && [[ -n "$bundle" ]]; then
+  if name="$(app_name_for_bundle "$bundle")" && [[ -n "$name" ]]; then
+    printf '%s\n' "$name"
+    exit 0
+  fi
+fi
+
+for app in "${CANDIDATES[@]}"; do
+  if installed "$app"; then
+    printf '%s\n' "$app"
+    exit 0
+  fi
+done
+
+printf 'Safari\n'

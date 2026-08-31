@@ -91,8 +91,13 @@ run = 'layout floating'
 # for a new instance, which Firefox and Chrome both answer by opening another
 # window in the instance already running - a new window on the workspace you
 # are on, which is the whole point of the key.
+#
+# Both names are resolved at build time too: @TERMINAL@ by bin/terminal and
+# @BROWSER@ by bin/browser, so neither binding names an app this machine does
+# not have. @BROWSER@ is quoted because a browser name can contain a space
+# ("Google Chrome") where a terminal name never does.
 cmd-ctrl-alt-enter = 'exec-and-forget open -na @TERMINAL@'   # terminal
-cmd-ctrl-alt-shift-enter = 'exec-and-forget open -na Firefox'   # browser
+cmd-ctrl-alt-shift-enter = 'exec-and-forget open -na "@BROWSER@"'   # browser
 
 # Launcher (omarchy: Super+Space)
 cmd-ctrl-alt-space = 'exec-and-forget open -a Raycast'   # launcher

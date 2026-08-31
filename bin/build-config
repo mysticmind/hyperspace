@@ -84,6 +84,14 @@ def main():
                           text=True).stdout.strip() or "Terminal"
     text = text.replace("@TERMINAL@", term)
 
+    # @BROWSER@ likewise, via bin/browser, which asks LaunchServices which
+    # browser this person actually chose rather than assuming Firefox. The
+    # binding in the base config quotes it: a browser name can contain a
+    # space, and exec-and-forget hands the string to bash.
+    browser = subprocess.run([str(REPO/"bin/browser")], capture_output=True,
+                             text=True).stdout.strip() or "Safari"
+    text = text.replace("@BROWSER@", browser)
+
     text = text.replace("# @plugin-bindings@",
                         "\n\n".join(bindings) if bindings else "# (no plugin bindings)")
     text = text.replace("# @plugin-window-rules@",
