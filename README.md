@@ -418,6 +418,13 @@ Written down because the setup this replaced broke every one of them:
 
 ## Layout
 
+`bin/` is hand-written commands, not build output: thirteen executable scripts
+that `install.sh` symlinks onto your PATH as `hyperspace-*`, plus the two Swift
+sources beside the wrappers that compile them. Source sits next to whatever
+uses it here, the same way `plugins/media/` keeps `media-ctl` next to the menu
+bar plugin that calls it. Nothing compiled is ever committed: the two panels
+are built on first use and cached in `~/.local/state/hyperspace/`.
+
 ```
 Brewfile                          dependencies
 install.sh / uninstall.sh         symmetric, manifest-driven
