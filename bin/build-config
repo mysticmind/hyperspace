@@ -10,7 +10,7 @@ them only as "Ill-formed key" with the line number of the SECOND definition,
 which tells you nothing about which plugin collided. We catch it here and name
 both sides instead.
 """
-import pathlib, re, sys
+import subprocess, pathlib, re, sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 BASE = REPO/"config/aerospace/aerospace.base.toml"
@@ -75,6 +75,14 @@ def main():
             rules.append(f"# --- plugin: {name} ---\n"
                          + rf.read_text().strip().replace("@PLUGIN_DIR@", str(d)))
         used.append(name)
+
+    # @TERMINAL@ is resolved by bin/terminal, so the generated config names a
+    # terminal that is actually installed. Hardcoding Alacritty meant
+    # Super+Return silently did nothing for anyone who does not have it, and
+    # hyperspace does not install it.
+    term = subprocess.run([str(REPO/"bin/terminal")], capture_output=True,
+                          text=True).stdout.strip() or "Terminal"
+    text = text.replace("@TERMINAL@", term)
 
     text = text.replace("# @plugin-bindings@",
                         "\n\n".join(bindings) if bindings else "# (no plugin bindings)")

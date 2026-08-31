@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Which terminal Super+Return should open. Prints an app name, nothing else.
+#
+# Super+Return was hardcoded to Alacritty, which hyperspace does not install
+# and most Macs do not have. `exec-and-forget open -na Alacritty` fails
+# silently, so on someone else's machine the first binding anyone tries did
+# nothing at all, with no error to explain it.
+#
+# Resolution, first match wins:
+#
+#   $HYPERSPACE_TERMINAL              for a one-off or a script
+#   ~/.config/hyperspace/terminal     a file holding the app name, if you want
+#                                     it to survive a rebuild
+#   the first of the list below that is actually installed
+#   Terminal                          ships with macOS, so there is always an
+#                                     answer and Super+Return always works
+#
+# The name is whatever `open -a` accepts, which is the .app basename.
+set -uo pipefail
+
+# Order is a preference, not a ranking: these are the terminals whose users are
+# most likely to be running a tiling window manager in the first place.
+CANDIDATES=(Alacritty Ghostty kitty WezTerm iTerm)
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/hyperspace/terminal"
+
+if [[ -n "${HYPERSPACE_TERMINAL:-}" ]]; then
+  printf '%s\n' "$HYPERSPACE_TERMINAL"
+  exit 0
+fi
+
+if [[ -f "$CONFIG" ]]; then
+  name="$(tr -d '[:space:]' < "$CONFIG")"
+  if [[ -n "$name" ]]; then
+    printf '%s\n' "$name"
+    exit 0
+  fi
+fi
+
+for app in "${CANDIDATES[@]}"; do
+  if [[ -d "/Applications/$app.app" || -d "$HOME/Applications/$app.app" ]]; then
+    printf '%s\n' "$app"
+    exit 0
+  fi
+done
+
+printf 'Terminal\n'

@@ -235,6 +235,7 @@ link "$REPO/bin/close-window" "$HOME/.local/bin/hyperspace-close"
 link "$REPO/bin/doctor" "$HOME/.local/bin/hyperspace-doctor"
 link "$REPO/bin/restart" "$HOME/.local/bin/hyperspace-restart"
 link "$REPO/bin/menubar" "$HOME/.local/bin/hyperspace-menubar"
+link "$REPO/bin/terminal" "$HOME/.local/bin/hyperspace-terminal"
 link "$REPO/bin/plugin" "$HOME/.local/bin/hyperspace-plugin"
 link "$REPO/bin/plugin-ui" "$HOME/.local/bin/hyperspace-plugins"
 
@@ -347,7 +348,7 @@ fi
 
 cat <<EOF
 
-$(printf '\033[1;32mDone.\033[0m') Super = Caps Lock (⌘⌃⌥). Super+Return opens a terminal.
+$(printf '\033[1;32mDone.\033[0m') Super = Caps Lock (⌘⌃⌥). Super+Return opens $("$REPO/bin/terminal").
 
 Steps this script cannot do for you:
   - Grant Accessibility to AeroSpace and Karabiner when macOS asks.

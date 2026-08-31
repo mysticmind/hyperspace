@@ -32,7 +32,23 @@ if [[ -n "${wid:-}" ]]; then
   exit 0
 fi
 
-[[ -d /Applications/Alacritty.app ]] || { echo "Alacritty.app not found" >&2; exit 1; }
+# Alacritty specifically, not whatever bin/terminal resolves to: the sizing
+# and placement below are Alacritty's own --args (window.dimensions,
+# window.position, window.level) and have no portable equivalent. Every other
+# terminal would need its own flags, which is an argument for the native panel
+# rather than for a second one of these.
+if [[ ! -d /Applications/Alacritty.app ]]; then
+  cat >&2 <<'MISSING'
+The fallback cheatsheet needs Alacritty, which is not installed.
+
+You are seeing this because swiftc is missing, so the native panel could not
+be built. Either is enough:
+
+  xcode-select --install     then press Super+K again
+  brew install --cask alacritty
+MISSING
+  exit 1
+fi
 
 # Centre it. AeroSpace cannot place a floating window, and Alacritty otherwise
 # lands wherever macOS cascades it - which put the sheet partly off the top of

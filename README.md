@@ -232,6 +232,26 @@ fails to build.
 | `dictation` | [Handy](https://handy.computer): **Right Option held** = push-to-talk, **Super+D** = toggle start/stop |
 | `media` | now playing in the menu bar with transport controls for whichever player is running; `Super+Shift+[` / `]` prev/next, `Super+Shift+\\` play-pause |
 
+## Which terminal Super+Return opens
+
+Whichever you have. `bin/terminal` resolves it and `build-config` bakes the
+answer into `aerospace.toml`, so the binding names a terminal that is actually
+installed rather than one this repo happens to prefer. First match wins:
+
+```
+$HYPERSPACE_TERMINAL                  one-off, or for a script
+~/.config/hyperspace/terminal         a file with the app name, to make it stick
+first installed of: Alacritty, Ghostty, kitty, WezTerm, iTerm
+Terminal                              ships with macOS, so there is always an answer
+```
+
+`hyperspace-terminal` prints the current answer. Changing it takes a
+`build-config` and an `aerospace reload-config`, or just re-run `install.sh`.
+
+Note that hyperspace does not install a terminal. It used to hardcode
+Alacritty, which is not in the Brewfile, so on a machine without it
+`Super+Return` silently did nothing.
+
 ## Your terminal's title bar
 
 Under a tiler the traffic lights are dead weight. This repo does not touch your
@@ -439,6 +459,7 @@ bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
 bin/restart                       restart Karabiner + AeroSpace when the stack is wedged
 bin/menubar                       show/hide the menu bar and make the tiling follow
+bin/terminal                      which terminal Super+Return opens
 tests/properties.sh               the security guarantees, as tests
 tests/dryrun.sh                   proves --dry-run changes nothing
 tests/reversible.sh               install, uninstall, diff the machine (destructive)

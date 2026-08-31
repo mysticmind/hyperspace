@@ -84,7 +84,7 @@ run = 'layout floating'
 [mode.main.binding]
 
 # Terminal / browser (omarchy: Super+Return, Super+Shift+Return)
-cmd-ctrl-alt-enter = 'exec-and-forget open -na Alacritty'   # terminal
+cmd-ctrl-alt-enter = 'exec-and-forget open -na @TERMINAL@'   # terminal
 cmd-ctrl-alt-shift-enter = 'exec-and-forget open -a Firefox'   # browser
 
 # Launcher (omarchy: Super+Space)
