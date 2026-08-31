@@ -12,7 +12,7 @@
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO"
+cd "$REPO" || exit 1
 
 pass=0 fail=0
 ok()  { printf '  \033[1;32mok\033[0m    %s\n' "$*"; pass=$((pass+1)); }

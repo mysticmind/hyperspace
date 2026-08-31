@@ -19,7 +19,7 @@
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO"
+cd "$REPO" || exit 1
 
 if [[ "${HYPERSPACE_TEST_I_MEAN_IT:-0}" != "1" ]]; then
   cat >&2 <<'EOF'

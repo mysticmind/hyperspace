@@ -133,7 +133,8 @@ link() {
     # Backups go to the state dir, NOT next to the original. SwiftBar runs
     # every file in its plugin directory, so a .bak left beside a plugin
     # becomes a second copy of that plugin in the menu bar.
-    local bak="$STATE/backups/$(basename "$dst").bak.hyperspace.$STAMP"
+    local bak
+    bak="$STATE/backups/$(basename "$dst").bak.hyperspace.$STAMP"
     if (( DRY )); then
       would "back up existing ${dst/#$HOME/\~} -> ${bak/#$HOME/\~}"
     else
