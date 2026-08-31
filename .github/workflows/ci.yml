@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The security properties and the linters. Runs on Linux because none of it
+  # needs macOS, which keeps the check that matters most also the fastest.
+  properties:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Security properties
+        run: ./tests/properties.sh
+
+      # shellcheck is preinstalled on the ubuntu runner. Installing it would
+      # mean apt-get, which means sudo, which tests/properties.sh bans across
+      # the whole repo. Keeping the ban carve-out-free is worth more than the
+      # convenience.
+      - name: shellcheck
+        run: |
+          # SC1090/SC1091: sourced paths resolved at runtime.
+          # SC2086: intentional word splitting in the `defaults read $pair` calls.
+          find . -path ./.git -prune -o -type f -print \
+            | xargs -I{} sh -c 'head -1 "{}" | grep -q "bash" && echo "{}"' \
+            | xargs shellcheck -e SC1090,SC1091,SC2086 --severity=warning
+
+      - name: python syntax
+        run: |
+          for f in bin/cheatsheet bin/plugin bin/plugin-dialog bin/build-config bin/karabiner-rule; do
+            python3 -m py_compile "$f"
+          done
+
+  # macOS-only checks: the Swift panels have to compile, and the dry run has to
+  # be inert on a real machine with real `defaults`.
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash syntax
+        run: |
+          find . -path ./.git -prune -o -type f -print \
+            | xargs -I{} sh -c 'head -1 "{}" | grep -q "bash" && bash -n "{}" && echo "ok {}"'
+
+      - name: swift compiles
+        run: |
+          for f in bin/*.swift; do
+            swiftc -O -parse-as-library "$f" -o "$RUNNER_TEMP/$(basename "$f" .swift)"
+            echo "ok $f"
+          done
+
+      - name: cheatsheet parses a config
+        env:
+          HYPERSPACE_AEROSPACE_CONFIG: config/aerospace/aerospace.base.toml
+        run: |
+          ./bin/cheatsheet --json > /tmp/sheet.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/sheet.json"))
+          assert d, "cheatsheet produced no sections"
+          n = sum(len(s["rows"]) for s in d)
+          assert n > 10, f"suspiciously few bindings: {n}"
+          print(f"{len(d)} sections, {n} bindings")
+          PY
+
+      - name: --dry-run is inert
+        run: ./tests/dryrun.sh
+
+  # The reversibility contract: install, uninstall, assert the machine is
+  # unchanged. Not on by default. It needs the casks, and Karabiner wants a
+  # system extension a headless runner cannot approve, so this is opt-in and
+  # allowed to fail without failing the build. It is here to be run
+  # deliberately, on a machine that can be thrown away.
+  reversible:
+    runs-on: macos-latest
+    if: github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: install then uninstall, and diff the machine
+        env:
+          HYPERSPACE_TEST_I_MEAN_IT: "1"
+        run: ./tests/reversible.sh

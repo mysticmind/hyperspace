@@ -111,7 +111,8 @@ def main():
     for action, names in (("enable", to_enable), ("disable", to_disable)):
         if not names:
             continue
-        p = subprocess.run([str(REPO/"bin/plugin"), action, *names],
+        # --yes: a dialog has no stdin to answer a prompt with.
+        p = subprocess.run([str(REPO/"bin/plugin"), action, *names, "--yes"],
                            capture_output=True, text=True)
         if p.returncode == 0:
             done += [f"{action}d {n}" for n in names]

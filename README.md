@@ -60,8 +60,14 @@ back, install it yourself - hyperspace no longer has an opinion about it.
 ```sh
 git clone <this repo> ~/.local/share/hyperspace
 cd ~/.local/share/hyperspace
+./install.sh --dry-run     # read exactly what it will touch
 ./install.sh
 ```
+
+`--dry-run` prints every package, file, symlink, preference, login agent and
+service it would change, and changes nothing. This script edits your keyboard
+configuration, so you should not have to take that on trust. See
+[SECURITY.md](SECURITY.md).
 
 Clone it wherever you like. `install.sh` works out where it is from its own
 path, and everything it links points back at that location, so nothing here
@@ -368,6 +374,30 @@ matches a Super chord.
 **`'''triple-quoted'''` TOML strings** are not parsed; use single quotes and
 avoid command paths containing spaces.
 
+## Security
+
+It edits `karabiner.json`, sets system preferences and installs a login item,
+which is a lot of trust for a window manager setup. So the guarantees are
+tested rather than promised: no `sudo`, no network at runtime, no `eval` or
+pipe-to-shell, never writes to your shell config, never removes a Homebrew
+package on teardown, no `KeepAlive` in any LaunchAgent. `tests/properties.sh`
+fails CI if any of those stops being true, and each check was verified by
+introducing the violation and confirming it is caught.
+
+```sh
+./install.sh --dry-run       # what it would do, before it does anything
+hyperspace-doctor --audit    # what it has already done here, and what uninstall restores
+./tests/properties.sh        # the guarantees, checked against the source
+./tests/dryrun.sh            # proves --dry-run is inert, from outside
+```
+
+Enabling a plugin runs that plugin's `install.sh` as you. That is deliberate
+(the `dictation` plugin merges Karabiner rules with it) and it is now announced
+and confirmable rather than silent. A plugin from elsewhere is code from
+elsewhere; read it first.
+
+[SECURITY.md](SECURITY.md) has the full account.
+
 ## Design rules
 
 Written down because the setup this replaced broke every one of them:
@@ -396,6 +426,9 @@ bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
 bin/restart                       restart Karabiner + AeroSpace when the stack is wedged
 bin/menubar                       show/hide the menu bar and make the tiling follow
+tests/properties.sh               the security guarantees, as tests
+tests/dryrun.sh                   proves --dry-run changes nothing
+tests/reversible.sh               install, uninstall, diff the machine (destructive)
 bin/cheatsheet                    parse aerospace.toml (text, or --json for the panel)
 bin/cheatsheet-toggle             Super+K show/hide, builds and caches the panel
 bin/cheatsheet-ui.swift           the cheatsheet panel (SwiftUI)

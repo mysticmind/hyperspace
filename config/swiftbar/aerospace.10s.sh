@@ -71,9 +71,9 @@ for d in "$REPO"/plugins/*/; do
   [ -d "$d" ] || continue
   name=$(basename "$d")
   if grep -qx "$name" "$STATE" 2>/dev/null; then
-    echo "  ● $name - on | bash=$REPO/bin/plugin param1=disable param2=$name terminal=false refresh=true"
+    echo "  ● $name - on | bash=$REPO/bin/plugin param1=disable param2=$name param3=--yes terminal=false refresh=true"
   else
-    echo "  ○ $name - off | bash=$REPO/bin/plugin param1=enable param2=$name terminal=false refresh=true"
+    echo "  ○ $name - off | bash=$REPO/bin/plugin param1=enable param2=$name param3=--yes terminal=false refresh=true"
   fi
 done
 

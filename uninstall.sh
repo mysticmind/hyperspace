@@ -31,9 +31,16 @@ if [[ -f "$HOME/.local/state/hyperspace/enabled-plugins" ]]; then
 fi
 
 # Scripts we linked into ~/.local/bin, only when they still point at this repo.
-for b in hyperspace-cheatsheet hyperspace-close hyperspace-doctor hyperspace-plugin; do
-  t="$(readlink "$HOME/.local/bin/$b" 2>/dev/null || true)"
-  case "$t" in "$REPO"/*) rm -f "$HOME/.local/bin/$b"; log "removed ~/.local/bin/$b" ;; esac
+#
+# Globbed rather than listed. A hardcoded list rots every time a command is
+# added: hyperspace-plugins, hyperspace-restart and hyperspace-menubar were all
+# added after the list was written and none of them were being removed, which
+# made uninstall quietly incomplete. The `$REPO/*` test is what keeps this safe:
+# a same-named link of yours pointing elsewhere is left alone.
+for f in "$HOME/.local/bin"/hyperspace-*; do
+  [[ -L "$f" ]] || continue
+  t="$(readlink "$f" 2>/dev/null || true)"
+  case "$t" in "$REPO"/*) rm -f "$f"; log "removed ${f/#$HOME/\~}" ;; esac
 done
 
 # --- 1b. Login agents -------------------------------------------------------

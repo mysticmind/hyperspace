@@ -115,10 +115,47 @@ def link_swiftbar(name, on):
             print(f"  unlinked menu bar plugin {f.name}")
 
 
-def hook(name, script):
+def hook(name, script, assume_yes=False):
+    """Run a plugin's install/uninstall hook, after saying so.
+
+    This is the one place hyperspace executes code it did not write. A plugin
+    is a directory someone can drop in, and its hook runs as you, with your
+    permissions - the dictation plugin legitimately uses this to merge
+    Karabiner rules. That is a reasonable thing for a plugin to do and an
+    unreasonable thing to do silently, so the hook is named, its size shown,
+    and on a terminal you get the chance to read it first.
+
+    --yes skips the prompt, which is what the SwiftBar menu and the panel pass:
+    a GUI toggle has no stdin to answer with. They are only ever enabling
+    plugins already in the repo you cloned.
+    """
     f = PLUGINS/name/script
-    if f.exists():
-        subprocess.run(["/bin/bash", str(f)], check=False)
+    if not f.exists():
+        return True
+    # flush: the hook writes straight to the terminal, so an unflushed
+    # announcement lands AFTER the thing it was meant to announce.
+    print(f"  {name}/{script} will run as you ({f.stat().st_size} bytes)", flush=True)
+    if not assume_yes and sys.stdin.isatty():
+        try:
+            a = input("  [r]un, [s]how it first, or [q]uit? ").strip().lower()
+        except EOFError:
+            a = "q"
+        if a.startswith("s"):
+            print()
+            print(f.read_text().rstrip())
+            print()
+            try:
+                a = input("  run it? [y/N] ").strip().lower()
+            except EOFError:
+                a = "n"
+            if not a.startswith("y"):
+                print("  skipped")
+                return False
+        elif a.startswith("q"):
+            print("  skipped")
+            return False
+    subprocess.run(["/bin/bash", str(f)], check=False)
+    return True
 
 
 def rebuild():
@@ -154,6 +191,8 @@ def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         print(__doc__); return
     action, names = sys.argv[1], sys.argv[2:]
+    assume_yes = "--yes" in names
+    names = [n for n in names if n != "--yes"]
     if action == "list":
         cmd_list(as_json="--json" in names); return
     if action not in ("enable", "disable") or not names:
@@ -167,9 +206,11 @@ def main():
     cur = set(enabled())
     for n in names:
         if action == "enable":
-            cur.add(n); print(f"enabling {n}"); hook(n, "install.sh"); link_swiftbar(n, True)
+            cur.add(n); print(f"enabling {n}")
+            hook(n, "install.sh", assume_yes); link_swiftbar(n, True)
         else:
-            cur.discard(n); print(f"disabling {n}"); link_swiftbar(n, False); hook(n, "uninstall.sh")
+            cur.discard(n); print(f"disabling {n}")
+            link_swiftbar(n, False); hook(n, "uninstall.sh", assume_yes)
     # Write state, then roll it back if the rebuild rejects the result - a
     # colliding plugin must not stay "enabled" and break every later build.
     previous = enabled()

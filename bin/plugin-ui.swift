@@ -81,7 +81,8 @@ final class Model: ObservableObject {
         failure = nil
         let action = p.enabled ? "disable" : "enable"
         DispatchQueue.global().async {
-            let r = run([action, p.name])
+            // --yes: a GUI toggle has no stdin to answer a prompt with.
+            let r = run([action, p.name, "--yes"])
             // Re-read rather than assume: bin/plugin rolls back on a binding
             // collision, so the truth after a toggle is whatever it now says.
             let fresh = load()
