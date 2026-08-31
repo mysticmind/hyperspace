@@ -1,0 +1,3 @@
+name = "worldradio"
+description = "Spin a globe, land on a city, hear what it is listening to. Super+Shift+R"
+network = true

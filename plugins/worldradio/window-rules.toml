@@ -1,0 +1,5 @@
+# The globe is a normal app window, so the tiler would otherwise size it into
+# the layout - same reason the plugin panel has this rule in the base config.
+[[on-window-detected]]
+if.window-title-regex-substring = 'Hyperspace Radio'
+run = 'layout floating'

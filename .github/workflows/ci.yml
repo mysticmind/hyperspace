@@ -40,7 +40,8 @@ jobs:
 
       - name: python syntax
         run: |
-          for f in bin/cheatsheet bin/plugin bin/plugin-dialog bin/build-config bin/karabiner-rule; do
+          for f in bin/cheatsheet bin/plugin bin/plugin-dialog bin/build-config bin/karabiner-rule \
+                   plugins/worldradio/radio plugins/worldradio/world-build; do
             python3 -m py_compile "$f"
           done
 
@@ -61,9 +62,12 @@ jobs:
           done < <(find . -path ./.git -prune -o -type f -print)
           exit $rc
 
+      # Plugins as well as bin/: a plugin panel that does not compile is a
+      # keybinding that does nothing, and worldradio ships one.
       - name: swift compiles
         run: |
-          for f in bin/*.swift; do
+          for f in bin/*.swift plugins/*/*.swift; do
+            [ -e "$f" ] || continue
             swiftc -O -parse-as-library "$f" -o "$RUNNER_TEMP/$(basename "$f" .swift)"
             echo "ok $f"
           done

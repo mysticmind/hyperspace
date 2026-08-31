@@ -1,0 +1,794 @@
+#!/usr/bin/env python3
+"""World radio: tune anywhere on the planet, from the globe or the menu bar.
+
+    radio status                what is playing, as JSON
+    radio world                 geo-located stations for the globe
+    radio country <CC>          stations in one country
+    radio search <text>         stations by name or tag
+    radio play <uuid>           tune it
+    radio toggle                pause / resume, or resume the last station
+    radio stop                  quit the player
+    radio random [--country CC] somewhere new, avoiding what you just heard
+    radio favorite [<uuid>]     add or remove (default: what is playing)
+    radio favorites | recent    the saved lists
+    radio volume <0-100|+5|-5>  independent of system volume
+    radio mute
+    radio countries             every country with stations, from the API
+
+Everything prints JSON, because two front ends read it: the Swift globe panel
+and the SwiftBar menu bar item. `--tsv` prints the same thing as tab-separated
+lines for the menu bar, which is bash and has no jq to lean on.
+
+THIS PLUGIN TALKS TO THE NETWORK. That is what a radio is, and it is the one
+thing the rest of hyperspace promises never to do - so the promise is now
+scoped rather than quietly broken: the core still touches nothing, a plugin
+must declare `network = true` in its plugin.toml, and `plugin enable` says so
+out loud before it turns one on. See tests/properties.sh.
+
+Two hosts are contacted, both only when you ask for something:
+  * the Radio Browser API (api.radio-browser.info), community-run, for the
+    station directory. No account, no key. It sees this plugin's user agent.
+  * whichever station you tune, by mpv, for the audio itself.
+
+Dependencies: mpv, and python3 - which hyperspace already requires. Not jq,
+not socat: mpv's IPC is a unix socket carrying JSON lines, and python speaks
+both, so this needs nothing that is not already here or in the Brewfile.
+"""
+import argparse
+import json
+import os
+import pathlib
+import random
+import re
+import socket
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+VERSION = "1.0"
+AGENT = f"hyperspace-worldradio/{VERSION} (+https://github.com/mysticmind/hyperspace)"
+
+HERE = pathlib.Path(__file__).resolve().parent
+STATE_DIR = pathlib.Path(
+    os.environ.get("XDG_STATE_HOME", pathlib.Path.home()/".local/state"))/"hyperspace/worldradio"
+CACHE_DIR = STATE_DIR/"cache"
+STATE_FILE = STATE_DIR/"state.json"
+
+# $TMPDIR, not the state dir: a unix socket path is capped at 104 bytes by the
+# kernel, and ~/.local/state/hyperspace/worldradio/mpv.sock is close enough to
+# that ceiling that a long username pushes it over - as a bind() failure with
+# no useful message. "hs-radio" keeps the whole path around 60.
+RUNTIME = pathlib.Path(os.environ.get("TMPDIR", "/tmp"))/"hs-radio"
+SOCKET = RUNTIME/"mpv.sock"
+PID_FILE = RUNTIME/"mpv.pid"
+LOG_FILE = RUNTIME/"mpv.log"
+
+WORLD_CACHE = CACHE_DIR/"world.json"
+WORLD_TTL = 7*24*3600
+COUNTRIES_TTL = 7*24*3600
+COUNTRY_TTL = 24*3600
+MIRROR_TTL = 24*3600
+
+# A first page that paints immediately, then the rest in the background. The
+# globe is unusable while it is empty, and 800 stations arrive in well under a
+# second where 3000 take a few - so you get a world to spin either way.
+WORLD_FIRST = 800
+WORLD_FULL = 3000
+
+MAX_RESPONSE = 16*1024*1024
+MAX_IPC = 1024*1024
+RECENT_MAX = 40
+
+
+# --- the Radio Browser directory --------------------------------------------
+
+def mirror():
+    """Pick an API server.
+
+    all.api.radio-browser.info round-robins across the volunteer mirrors, but
+    the documented way to be a good citizen is to resolve it yourself and talk
+    to one server for the session rather than reopening a connection to a
+    different continent for every request. Reverse DNS turns the address back
+    into the mirror's own name so TLS still verifies against a certificate it
+    actually holds.
+    """
+    cached = read_cache(CACHE_DIR/"mirror.json", MIRROR_TTL)
+    if cached and isinstance(cached.get("host"), str):
+        return cached["host"]
+    hosts = []
+    try:
+        addresses = {a[4][0] for a in socket.getaddrinfo(
+            "all.api.radio-browser.info", 443, socket.AF_INET, socket.SOCK_STREAM)}
+        for address in addresses:
+            try:
+                name = socket.gethostbyaddr(address)[0]
+            except OSError:
+                continue
+            if name.endswith(".api.radio-browser.info"):
+                hosts.append(name)
+    except OSError:
+        pass
+    # The round-robin name is a working fallback, not an error case: its
+    # certificate covers it, so a machine with no reverse DNS still tunes.
+    host = random.choice(hosts) if hosts else "all.api.radio-browser.info"
+    write_cache(CACHE_DIR/"mirror.json", {"host": host})
+    return host
+
+
+def api(path, params=None):
+    """One GET against the directory. Returns parsed JSON, or raises Fail."""
+    query = urllib.parse.urlencode(params or {})
+    url = f"https://{mirror()}/json/{path}" + (f"?{query}" if query else "")
+    request = urllib.request.Request(url, headers={
+        "User-Agent": AGENT,
+        "Accept": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            # Read one byte past the cap so an oversized body is detected
+            # rather than silently truncated into invalid JSON.
+            body = response.read(MAX_RESPONSE + 1)
+    except Exception as e:                       # noqa: BLE001 - urllib raises many
+        raise Fail(f"radio directory unreachable: {e}")
+    if len(body) > MAX_RESPONSE:
+        raise Fail("radio directory returned an oversized response")
+    try:
+        return json.loads(body)
+    except ValueError:
+        raise Fail("radio directory returned something that is not JSON")
+
+
+class Fail(Exception):
+    """Something the user should see, printed as JSON rather than a traceback."""
+
+
+# One wording, used by the panel, the menu bar and the install hook, so the
+# answer to "why is nothing playing" is the same sentence everywhere.
+MISSING_MPV = "mpv is not installed - run: brew install mpv"
+
+
+# --- stations ----------------------------------------------------------------
+
+# The stream URL is the one field here that gets handed to another program, so
+# it is the one field that is checked rather than trusted. Anything with a
+# control character in it can inject a second line into mpv's IPC, and anything
+# that is not http(s) can name a local file or a pipe.
+SAFE_URL = re.compile(r"^https?://[^\s\x00-\x1f\x7f]+$", re.IGNORECASE)
+
+
+def playable(url):
+    return isinstance(url, str) and bool(SAFE_URL.match(url)) and len(url) <= 2000
+
+
+def compact(raw):
+    """One directory record, cut down to what the globe and the menu bar use.
+
+    The API returns ~30 fields per station and the world view holds thousands
+    of them; keeping the lot would make the cache 3.7MB where this makes it
+    580KB, for fields nothing reads.
+    """
+    def text(key, cap):
+        value = raw.get(key)
+        return value.strip()[:cap] if isinstance(value, str) else ""
+
+    def number(key):
+        value = raw.get(key)
+        return float(value) if isinstance(value, (int, float)) else None
+
+    url = raw.get("url_resolved") or raw.get("url") or ""
+    latitude, longitude = number("geo_lat"), number("geo_long")
+    # Out-of-range coordinates would project to somewhere off the globe, and a
+    # dot at 0,0 in the Gulf of Guinea is the classic "missing data" artefact.
+    if latitude is None or longitude is None or not (
+            -90 <= latitude <= 90 and -180 <= longitude <= 180) or (
+            latitude == 0 and longitude == 0):
+        latitude = longitude = None
+    return {
+        "uuid": text("stationuuid", 64),
+        "name": text("name", 160) or "(unnamed station)",
+        "country": text("country", 100),
+        "cc": text("countrycode", 2).upper(),
+        "lat": latitude,
+        "lon": longitude,
+        "url": url if playable(url) else "",
+        "codec": text("codec", 16),
+        "bitrate": raw.get("bitrate") if isinstance(raw.get("bitrate"), int) else 0,
+        "tags": text("tags", 120),
+        "homepage": text("homepage", 200),
+    }
+
+
+def usable(stations):
+    """Drop the unplayable and the duplicated, keeping the first of each."""
+    seen, out = set(), []
+    for station in stations:
+        if not station["uuid"] or not station["url"] or station["uuid"] in seen:
+            continue
+        seen.add(station["uuid"])
+        out.append(station)
+    return out
+
+
+def search_api(path, params):
+    rows = api(path, params)
+    if not isinstance(rows, list):
+        raise Fail("radio directory returned an unexpected shape")
+    return usable(compact(r) for r in rows if isinstance(r, dict))
+
+
+# --- cache and state ---------------------------------------------------------
+
+def write_json(path, data, mode=0o600):
+    """Atomically, and never leaving a half-written file where a reader looks."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
+    with open(temporary, "w") as handle:
+        json.dump(data, handle, separators=(",", ":"))
+    os.chmod(temporary, mode)
+    os.replace(temporary, path)
+
+
+def read_cache(path, ttl):
+    try:
+        if time.time() - path.stat().st_mtime > ttl:
+            return None
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def write_cache(path, data):
+    write_json(path, data)
+
+
+def state():
+    try:
+        loaded = json.loads(STATE_FILE.read_text())
+        if isinstance(loaded, dict):
+            loaded.setdefault("volume", 70)
+            loaded.setdefault("favorites", [])
+            loaded.setdefault("recent", [])
+            loaded.setdefault("last", None)
+            return loaded
+    except (OSError, ValueError):
+        pass
+    return {"volume": 70, "favorites": [], "recent": [], "last": None}
+
+
+def save_state(data):
+    write_json(STATE_FILE, data)
+
+
+def remember(station):
+    """Recent list, most recent first, no duplicates, capped."""
+    data = state()
+    data["last"] = station
+    data["recent"] = [station] + [
+        s for s in data["recent"] if s.get("uuid") != station["uuid"]][:RECENT_MAX - 1]
+    save_state(data)
+
+
+# --- mpv ---------------------------------------------------------------------
+
+def mpv_path():
+    """Where mpv is, or "" if it is not installed.
+
+    The absolute paths first because SwiftBar and AeroSpace both run us with a
+    PATH that does not include /opt/homebrew/bin - a plugin that works in your
+    shell and not in the menu bar is the classic version of this bug.
+    """
+    for candidate in ("/opt/homebrew/bin/mpv", "/usr/local/bin/mpv", "/usr/bin/mpv"):
+        if os.access(candidate, os.X_OK):
+            return candidate
+    from shutil import which
+    return which("mpv") or ""
+
+
+def mpv_binary():
+    found = mpv_path()
+    if not found:
+        raise Fail(MISSING_MPV)
+    return found
+
+
+def ipc(commands):
+    """Send mpv one or more IPC commands, return the parsed replies.
+
+    mpv's IPC is newline-delimited JSON over a unix socket, which python does
+    natively - so this needs neither socat nor jq, and the plugin's whole
+    dependency list stays at "mpv".
+    """
+    if not SOCKET.is_socket():
+        return None
+    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    connection.settimeout(2)
+    try:
+        connection.connect(str(SOCKET))
+        payload = "".join(json.dumps(c) + "\n" for c in commands).encode()
+        connection.sendall(payload)
+        buffer = b""
+        replies = []
+        # Read until every request has answered. mpv also pushes unsolicited
+        # events down the same socket, so replies are matched by request_id
+        # rather than by counting lines.
+        wanted = {c["request_id"] for c in commands}
+        deadline = time.time() + 2
+        while wanted and time.time() < deadline and len(buffer) < MAX_IPC:
+            chunk = connection.recv(65536)
+            if not chunk:
+                break
+            buffer += chunk
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                try:
+                    message = json.loads(line)
+                except ValueError:
+                    continue
+                if message.get("request_id") in wanted:
+                    wanted.discard(message["request_id"])
+                    replies.append(message)
+        return replies
+    except OSError:
+        return None
+    finally:
+        connection.close()
+
+
+def get(properties):
+    """Read several mpv properties at once. Missing ones come back as None."""
+    commands = [{"command": ["get_property", p], "request_id": i}
+                for i, p in enumerate(properties)]
+    replies = ipc(commands) or []
+    answers = {r["request_id"]: r for r in replies}
+    out = {}
+    for i, name in enumerate(properties):
+        reply = answers.get(i)
+        out[name] = reply.get("data") if reply and reply.get("error") == "success" else None
+    return out
+
+
+def command(*args):
+    replies = ipc([{"command": list(args), "request_id": 1}])
+    return bool(replies and replies[0].get("error") == "success")
+
+
+def running():
+    return SOCKET.is_socket() and get(["idle-active"])["idle-active"] is not None
+
+
+def start(volume):
+    """Bring mpv up, idle, and wait for its socket to exist."""
+    if running():
+        return
+    RUNTIME.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # A stale socket from a killed mpv makes connect() fail forever; mpv itself
+    # refuses to bind over one.
+    SOCKET.unlink(missing_ok=True)
+    log = open(LOG_FILE, "a")
+    process = subprocess.Popen(
+        [mpv_binary(),
+         "--no-video", "--no-terminal", "--idle=yes",
+         f"--input-ipc-server={SOCKET}",
+         f"--volume={volume}",
+         f"--user-agent={AGENT}",
+         # Streams die: a station goes off air, a mirror stops answering. These
+         # keep mpv from either hanging forever on a dead socket or giving up
+         # on a hiccup that would have recovered.
+         "--network-timeout=15",
+         "--cache=yes", "--cache-secs=30",
+         "--msg-level=all=warn"],
+        stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+        # Detached: this CLI exits immediately, and the player has to outlive
+        # it. Without a new session mpv dies with the shell that ran us.
+        start_new_session=True)
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    PID_FILE.write_text(str(process.pid))
+    deadline = time.time() + 8
+    while time.time() < deadline:
+        if running():
+            return
+        time.sleep(0.05)
+    raise Fail(f"mpv did not start - see {LOG_FILE}")
+
+
+def stop_player():
+    if running():
+        command("quit")
+        deadline = time.time() + 3
+        while time.time() < deadline and SOCKET.exists():
+            time.sleep(0.05)
+    try:
+        pid = int(PID_FILE.read_text().strip())
+    except (OSError, ValueError):
+        pid = 0
+    if pid:
+        try:
+            os.kill(pid, 0)
+            os.kill(pid, 15)
+        except OSError:
+            pass
+    SOCKET.unlink(missing_ok=True)
+    PID_FILE.unlink(missing_ok=True)
+
+
+# --- status ------------------------------------------------------------------
+
+def status():
+    data = state()
+    if not running():
+        return {"running": False, "playing": False, "paused": False, "muted": False,
+                "buffering": False, "title": "", "volume": data["volume"],
+                "station": data.get("last") or {}, "favorite": False,
+                "mpv": mpv_path()}
+    live = get(["pause", "mute", "volume", "core-idle", "idle-active",
+                "metadata/by-key/icy-title", "media-title", "filename"])
+    station = data.get("last") or {}
+    paused = bool(live["pause"])
+    idle = bool(live["idle-active"])
+
+    # The song, when the stream sends one. icy-title is the field Icecast and
+    # Shoutcast actually carry it in, and it is the only one that always means
+    # "what is playing".
+    #
+    # media-title looks like the same thing and is not: with no metadata mpv
+    # falls back to the filename, so an HLS station (the BBC's, for one)
+    # reports `bbc_radio_fourfm-audio=128000.norewind.m3u8` as its "title" and
+    # the menu bar shows a URL fragment where a song should be. Measured on
+    # mpv 0.41. So icy-title first, and media-title only when it is telling us
+    # something the filename does not already say.
+    title = live["metadata/by-key/icy-title"]
+    title = title.strip() if isinstance(title, str) else ""
+    if not title:
+        fallback = live["media-title"]
+        if (isinstance(fallback, str) and fallback != live["filename"]
+                and not fallback.startswith(("http://", "https://"))):
+            title = fallback.strip()
+    return {
+        "running": True,
+        # core-idle means "not decoding": true while buffering as well as when
+        # paused, so it is only "buffering" when it is not the second one.
+        "playing": not paused and not idle and not bool(live["core-idle"]),
+        "paused": paused,
+        "buffering": not paused and not idle and bool(live["core-idle"]),
+        "muted": bool(live["mute"]),
+        "title": title.strip()[:200],
+        "volume": int(live["volume"]) if isinstance(live["volume"], (int, float))
+                  else data["volume"],
+        "station": {} if idle else station,
+        "favorite": any(f.get("uuid") == station.get("uuid")
+                        for f in data["favorites"]) if station else False,
+        "mpv": mpv_path(),
+    }
+
+
+# --- station sources ---------------------------------------------------------
+
+def world(refresh=False, full=False):
+    """Geo-located stations for the globe.
+
+    Only stations the directory has real coordinates for: a dot has to mean
+    "this transmitter is here". Placing the rest at their country's centre
+    would put forty dots in a heap in the middle of Kansas and imply a
+    precision the data does not have - so countries you can click carry the
+    ones without coordinates instead.
+    """
+    # `full` bypasses the cache as `refresh` does. It must: the background
+    # fetch is spawned BECAUSE the cache is partial, so a --full run that read
+    # the cache first would find it partial, spawn another one, and fork bomb.
+    if not (refresh or full):
+        cached = read_cache(WORLD_CACHE, WORLD_TTL)
+        if cached:
+            if cached.get("partial"):
+                spawn_refresh()
+            return cached
+    limit = WORLD_FULL if (full or refresh) else WORLD_FIRST
+    stations = search_api("stations/search", {
+        "has_geo_info": "true", "hidebroken": "true",
+        "order": "clickcount", "reverse": "true", "limit": limit,
+    })
+    payload = {"stations": stations, "partial": limit < WORLD_FULL,
+               "fetched": int(time.time())}
+    write_cache(WORLD_CACHE, payload)
+    if payload["partial"]:
+        spawn_refresh()
+    return payload
+
+
+def spawn_refresh():
+    """Fill the world in behind the panel, without making it wait."""
+    try:
+        subprocess.Popen([sys.executable, str(HERE/"radio"), "world", "--full", "--quiet"],
+                         stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except OSError:
+        pass
+
+
+def countries():
+    cached = read_cache(CACHE_DIR/"countries.json", COUNTRIES_TTL)
+    if cached:
+        return cached
+    rows = api("countrycodes")
+    out = [{"cc": r["name"].upper(), "count": int(r.get("stationcount", 0))}
+           for r in rows
+           if isinstance(r, dict) and isinstance(r.get("name"), str)
+           and len(r["name"]) == 2]
+    out.sort(key=lambda c: -c["count"])
+    write_cache(CACHE_DIR/"countries.json", out)
+    return out
+
+
+def by_country(code, limit=200):
+    code = code.upper()
+    if not re.fullmatch(r"[A-Z]{2}", code):
+        raise Fail("a country code is two letters")
+    path = CACHE_DIR/f"country-{code}.json"
+    cached = read_cache(path, COUNTRY_TTL)
+    if cached is not None:
+        return cached
+    stations = search_api(f"stations/bycountrycodeexact/{code}", {
+        "hidebroken": "true", "order": "clickcount", "reverse": "true", "limit": limit,
+    })
+    write_cache(path, stations)
+    return stations
+
+
+def search(text, limit=100):
+    text = text.strip()
+    if not text:
+        return []
+    found = search_api("stations/search", {
+        "name": text, "hidebroken": "true",
+        "order": "clickcount", "reverse": "true", "limit": limit,
+    })
+    # A tag pass as well, so "jazz" or "bbc" find the obvious thing whether it
+    # is in the station's name or only in its tags. Names first: someone typing
+    # a name wants that station, not the genre it happens to share a word with.
+    seen = {s["uuid"] for s in found}
+    for station in search_api("stations/search", {
+            "tag": text, "hidebroken": "true",
+            "order": "clickcount", "reverse": "true", "limit": limit//2 or 1}):
+        if station["uuid"] not in seen:
+            found.append(station)
+    return found
+
+
+def find(uuid):
+    """Resolve a uuid to a station, from anything cached, else from the API.
+
+    Favourites are checked first and refreshed from the API only if the cached
+    copy has no usable URL: stream URLs move, and a favourite that stops
+    working after a year is the reason the directory has a byuuid endpoint.
+    """
+    if not re.fullmatch(r"[0-9a-fA-F-]{8,64}", uuid or ""):
+        raise Fail("that is not a station id")
+    data = state()
+    pools = [data["favorites"], data["recent"]]
+    cached_world = read_cache(WORLD_CACHE, WORLD_TTL)
+    if cached_world:
+        pools.append(cached_world.get("stations", []))
+    for pool in pools:
+        for station in pool:
+            if station.get("uuid") == uuid and playable(station.get("url", "")):
+                return station
+    for path in sorted(CACHE_DIR.glob("country-*.json")):
+        for station in (read_cache(path, COUNTRY_TTL) or []):
+            if station.get("uuid") == uuid and playable(station.get("url", "")):
+                return station
+    found = search_api("stations/byuuid", {"uuids": uuid})
+    if not found:
+        raise Fail("no such station, or it has no usable stream")
+    return found[0]
+
+
+# --- actions -----------------------------------------------------------------
+
+def play(uuid):
+    station = find(uuid)
+    if not playable(station.get("url", "")):
+        raise Fail("that station has no usable stream URL")
+    data = state()
+    start(data["volume"])
+    if not command("loadfile", station["url"], "replace"):
+        raise Fail("mpv would not load that stream")
+    command("set_property", "pause", False)
+    remember(station)
+    return status()
+
+
+def toggle():
+    data = state()
+    if running() and get(["idle-active"])["idle-active"] is False:
+        live = get(["pause"])
+        command("set_property", "pause", not bool(live["pause"]))
+        return status()
+    # Nothing loaded: the key means "put the radio back on", not "do nothing".
+    last = data.get("last")
+    if not last or not last.get("uuid"):
+        raise Fail("nothing has been played yet - open the globe with Super+Shift+R")
+    return play(last["uuid"])
+
+
+def random_station(country=None):
+    """Somewhere new. Recent stations are excluded so the key does not hand
+    you the same three transmitters all evening."""
+    if country:
+        pool = by_country(country)
+    else:
+        pool = world().get("stations", [])
+        if not pool:
+            pool = search_api("stations/topclick/500", {"hidebroken": "true"})
+    heard = {s.get("uuid") for s in state()["recent"]}
+    fresh = [s for s in pool if s["uuid"] not in heard] or pool
+    if not fresh:
+        raise Fail("no stations to choose from")
+    return play(random.choice(fresh)["uuid"])
+
+
+def favorite(uuid=None):
+    data = state()
+    if not uuid:
+        current = data.get("last") or {}
+        uuid = current.get("uuid")
+        if not uuid:
+            raise Fail("nothing is playing, so there is nothing to favourite")
+    existing = [f for f in data["favorites"] if f.get("uuid") == uuid]
+    if existing:
+        data["favorites"] = [f for f in data["favorites"] if f.get("uuid") != uuid]
+        save_state(data)
+        return {"favorite": False, "uuid": uuid}
+    station = find(uuid)
+    data["favorites"].append(station)
+    save_state(data)
+    return {"favorite": True, "uuid": uuid, "station": station}
+
+
+def volume(argument):
+    data = state()
+    current = status()["volume"]
+    if argument.startswith(("+", "-")):
+        try:
+            level = current + int(argument)
+        except ValueError:
+            raise Fail("volume takes 0-100, or +5 / -5")
+    else:
+        if not argument.isdigit():
+            raise Fail("volume takes 0-100, or +5 / -5")
+        level = int(argument)
+    level = max(0, min(100, level))
+    if running():
+        command("set_property", "volume", level)
+    data["volume"] = level
+    save_state(data)
+    return status()
+
+
+def mute():
+    if running():
+        command("set_property", "mute", not status()["muted"])
+    return status()
+
+
+def copy_install():
+    """Put `brew install mpv` on the clipboard.
+
+    A menu item that copies the command beats one that only shows it: the menu
+    bar is where you find out mpv is missing, and retyping from a dropdown you
+    just dismissed is the annoying part.
+    """
+    subprocess.run(["/usr/bin/pbcopy"], input=b"brew install mpv", check=False)
+    return {"copied": "brew install mpv"}
+
+
+# --- output ------------------------------------------------------------------
+
+def tsv(value):
+    """The same data, flattened for the menu bar - which is bash, and has no jq.
+
+    Tab-separated because a station name can contain very nearly anything else,
+    and SwiftBar's own menu syntax is pipe-delimited.
+    """
+    def clean(text):
+        # Lowercase booleans, so the menu bar can test `[[ $running == true ]]`
+        # rather than matching python's capitalised repr.
+        if isinstance(text, bool):
+            return "true" if text else "false"
+        return re.sub(r"[\t\r\n]", " ", str(text if text is not None else ""))
+
+    if isinstance(value, dict) and "running" in value:
+        station = value.get("station") or {}
+        rows = [("running", value["running"]), ("playing", value["playing"]),
+                ("paused", value["paused"]), ("buffering", value["buffering"]),
+                ("muted", value["muted"]), ("volume", value["volume"]),
+                ("favorite", value["favorite"]), ("title", value["title"]),
+                ("uuid", station.get("uuid", "")), ("name", station.get("name", "")),
+                ("country", station.get("country", "")), ("cc", station.get("cc", "")),
+                ("homepage", station.get("homepage", "")),
+                ("mpv", value.get("mpv", ""))]
+        return "\n".join(f"{k}\t{clean(v)}" for k, v in rows)
+    if isinstance(value, dict) and "stations" in value:
+        value = value["stations"]
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            if "cc" in item and "count" in item:
+                lines.append(f"{clean(item['cc'])}\t{item['count']}")
+            else:
+                lines.append("\t".join(clean(item.get(k, "")) for k in
+                                       ("uuid", "name", "cc", "country")))
+        return "\n".join(lines)
+    return json.dumps(value)
+
+
+def main():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("command", nargs="?", default="status")
+    parser.add_argument("argument", nargs="?")
+    parser.add_argument("--tsv", action="store_true")
+    parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--full", action="store_true")
+    parser.add_argument("--refresh", action="store_true")
+    parser.add_argument("--country")
+    parser.add_argument("--limit", type=int, default=200)
+    parser.add_argument("-h", "--help", action="store_true")
+    options = parser.parse_args()
+
+    if options.help or options.command in ("help", "-h", "--help"):
+        print(__doc__)
+        return 0
+
+    actions = {
+        "status": lambda: status(),
+        "world": lambda: world(refresh=options.refresh, full=options.full),
+        "countries": lambda: countries(),
+        "country": lambda: by_country(need(options.argument, "a country code"),
+                                      options.limit),
+        "search": lambda: search(need(options.argument, "something to search for"),
+                                 options.limit),
+        "play": lambda: play(need(options.argument, "a station id")),
+        "toggle": lambda: toggle(),
+        "stop": lambda: (stop_player(), status())[1],
+        "random": lambda: random_station(options.country),
+        "favorite": lambda: favorite(options.argument),
+        "favorites": lambda: state()["favorites"],
+        "recent": lambda: state()["recent"],
+        "volume": lambda: volume(need(options.argument, "a volume")),
+        "mute": lambda: mute(),
+        "copy-install": lambda: copy_install(),
+    }
+    if options.command not in actions:
+        print(f"radio: no such command: {options.command}", file=sys.stderr)
+        print(__doc__, file=sys.stderr)
+        return 2
+
+    try:
+        result = actions[options.command]()
+    except Fail as failure:
+        # Machine-readable on stdout as well as human-readable on stderr: both
+        # front ends read stdout, and a panel that has to parse a traceback to
+        # find out mpv is missing will not tell you that mpv is missing.
+        if not options.quiet:
+            print(json.dumps({"error": str(failure)}))
+        print(f"radio: {failure}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+    if not options.quiet:
+        print(tsv(result) if options.tsv else json.dumps(result))
+    return 0
+
+
+def need(value, what):
+    if not value:
+        raise Fail(f"that command needs {what}")
+    return value
+
+
+if __name__ == "__main__":
+    sys.exit(main())

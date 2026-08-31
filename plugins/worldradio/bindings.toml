@@ -1,0 +1,15 @@
+# The plugin-dir token below is replaced with this plugin's own directory by
+# bin/build-config, so nothing hardcodes where the repo was cloned. (Spelled
+# without the @ markers here on purpose: the substitution rewrites comments
+# too, so naming it literally makes this sentence rewrite itself.)
+#
+# Two keys, not six. Super+Shift+R is next to nothing else and Super+R is
+# already `mode resize` in the base config, so the pair reads together; the
+# rest of the radio - play, pause, stop, favourite, volume - lives in the panel
+# and in the menu bar, where it does not have to claim a chord that a future
+# plugin might want.
+#
+# Not on comma, period or slash: Super+Shift with those three never reaches
+# AeroSpace at all on macOS. See plugins/media/bindings.toml, which measured it.
+cmd-ctrl-alt-shift-r = 'exec-and-forget @PLUGIN_DIR@/radio-panel'   # world radio globe
+cmd-ctrl-alt-shift-u = 'exec-and-forget @PLUGIN_DIR@/radio random'   # radio: somewhere new

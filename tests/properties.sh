@@ -35,16 +35,41 @@ else
   ok "no sudo, no doas, nothing asks for a password"
 fi
 
-# 2. Never touches the network at runtime. Homebrew does, in install.sh, and
-#    that is the user's own package manager acting on a Brewfile they can read.
-#    Nothing else may fetch anything.
-if scan | grep -vE '^(README\.md|Brewfile|SECURITY\.md)$' \
-   | xargs grep -nE '(^|[;&|(`$ ])(curl|wget|nc|ncat|telnet|scp|sftp|rsync)( |$)' 2>/dev/null | grep -q .; then
-  bad "found a network client"
-  scan | grep -vE '^(README\.md|Brewfile|SECURITY\.md)$' \
-    | xargs grep -nE '(^|[;&|(`$ ])(curl|wget|nc|ncat|telnet|scp|sftp|rsync)( |$)' 2>/dev/null | sed 's/^/        /'
+# 2. The CORE never touches the network at runtime, and a plugin that does has
+#    to declare it. Homebrew reaches the network during install.sh, acting on a
+#    Brewfile you can read; nothing else in the core may fetch anything.
+#
+#    A plugin is where that stops being absolute, because `worldradio` is a
+#    radio and a radio with no network is a box. So the property is scoped
+#    rather than quietly broken: the plugin says `network = true` in its own
+#    plugin.toml, bin/plugin prints that before enabling it, and nothing is
+#    enabled implicitly. One check covers both halves - a fetcher in the core
+#    fails, and so does a fetcher in a plugin that never declared one, because
+#    only declared plugins are exempt.
+#
+#    The pattern covers python and Swift, not just the shell clients. It was
+#    curl|wget|nc and friends alone, which urllib.request.urlopen walks
+#    straight past - the property would have gone on reading as "ok" while a
+#    plugin fetched whatever it liked.
+FETCHERS='(^|[;&|(`$ ])(curl|wget|nc|ncat|telnet|scp|sftp|rsync)( |$)'
+FETCHERS="$FETCHERS"'|urllib|urlopen|http\.client|requests\.(get|post)'
+FETCHERS="$FETCHERS"'|URLSession|socket\.(getaddrinfo|create_connection)|gethostbyaddr'
+
+# Prose, plus every plugin dir whose plugin.toml declares it - matched exactly
+# as bin/plugin reads the key, so the test and the loader cannot disagree.
+exempt='^(README\.md|Brewfile|SECURITY\.md)$'
+for toml in plugins/*/plugin.toml; do
+  [[ -f "$toml" ]] || continue
+  if grep -qE '^[[:space:]]*network[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$toml"; then
+    exempt="$exempt|^$(dirname "$toml")/"
+  fi
+done
+
+if scan | grep -vE "$exempt" | xargs grep -nE "$FETCHERS" 2>/dev/null | grep -q .; then
+  bad "a fetcher in something that never declared network = true"
+  scan | grep -vE "$exempt" | xargs grep -nE "$FETCHERS" 2>/dev/null | sed 's/^/        /'
 else
-  ok "no curl, wget, nc or any other fetcher outside the docs"
+  ok "the core fetches nothing; only a plugin declaring network = true may"
 fi
 
 # 3. Nothing is piped into a shell, and nothing is eval'd. This is the pattern

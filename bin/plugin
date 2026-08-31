@@ -8,6 +8,7 @@
 A plugin is a directory under plugins/ containing:
 
     plugin.toml        name + description                        (required)
+                       network = true, if it makes requests       (optional)
     bindings.toml      [mode.main.binding] lines to splice in    (optional)
     window-rules.toml  [[on-window-detected]] blocks             (optional)
     swiftbar/          menu bar plugins, linked into ~/.config/swiftbar (optional)
@@ -16,6 +17,11 @@ A plugin is a directory under plugins/ containing:
 
 Nothing is enabled implicitly: dropping a directory into plugins/ does nothing
 until you enable it, so a git pull cannot silently rebind your keyboard.
+
+The core never touches the network. A plugin may, and must then declare
+`network = true` in its plugin.toml - which this prints before enabling it,
+tags in `list`, and tests/properties.sh enforces by failing on any fetcher
+that was never declared.
 """
 import json, pathlib, plistlib, subprocess, sys, time
 
@@ -100,6 +106,22 @@ def meta(name):
 
 def available():
     return sorted(d.name for d in PLUGINS.iterdir() if d.is_dir()) if PLUGINS.is_dir() else []
+
+
+def declares_network(name):
+    """Whether the plugin admits to making requests.
+
+    hyperspace's own promise is that nothing touches the network at runtime,
+    and that holds for the core. A plugin can legitimately need to - the
+    worldradio plugin is a radio - so it says `network = true` in its
+    plugin.toml, this prints it before enabling, and tests/properties.sh
+    fails the build if anything fetches without having declared it.
+
+    Accepts the string as well as the boolean: python 3.9 has no tomllib and
+    the fallback parser in read_toml() returns every value as text.
+    """
+    value = meta(name).get("network")
+    return value is True or str(value).strip().lower() == "true"
 
 
 def swiftbar_undisable(paths):
@@ -209,6 +231,31 @@ def hook(name, script, assume_yes=False):
     return True
 
 
+def announce_network(name, assume_yes=False):
+    """Say that this plugin makes requests, before it is enabled.
+
+    Returns False if the answer is no. The confirmation is asked only when
+    there is no install.sh to ask about: that hook prompt comes immediately
+    after this line and is the same decision, and being asked twice to enable
+    one plugin teaches people to hit y without reading either.
+
+    --yes skips it, as it does for hooks, because the SwiftBar menu and the
+    panel have no stdin to answer with. They show the tag instead.
+    """
+    if not declares_network(name):
+        return True
+    print(f"  {name} declares network = true: it makes requests as you, when "
+          f"you ask it to.", flush=True)
+    print(f"  what it contacts is in plugins/{name}/ - read it before enabling.",
+          flush=True)
+    if assume_yes or not sys.stdin.isatty() or (PLUGINS/name/"install.sh").exists():
+        return True
+    try:
+        return input("  enable it? [y/N] ").strip().lower().startswith("y")
+    except EOFError:
+        return False
+
+
 def rebuild():
     """Returns True on success. Never leaves a broken config behind."""
     r = subprocess.run([str(REPO/"bin/build-config")], capture_output=True, text=True)
@@ -227,6 +274,7 @@ def cmd_list(as_json=False):
     if as_json:
         print(json.dumps([{"name": n,
                            "description": meta(n).get("description", ""),
+                           "network": declares_network(n),
                            "enabled": n in on} for n in names]))
         return
     if not names:
@@ -235,7 +283,10 @@ def cmd_list(as_json=False):
     for n in names:
         m = meta(n)
         mark = "\033[1;32m on\033[0m" if n in on else "\033[2moff\033[0m"
-        print(f"  [{mark}] {n:<14} {m.get('description', '')}")
+        # The network tag is on the listing, not only on the enable, so it is
+        # visible before you decide rather than while it happens.
+        tag = "  \033[2m[network]\033[0m" if declares_network(n) else ""
+        print(f"  [{mark}] {n:<14} {m.get('description', '')}{tag}")
 
 
 def main():
@@ -258,6 +309,10 @@ def main():
     for n in names:
         if action == "enable":
             cur.add(n); print(f"enabling {n}")
+            if not announce_network(n, assume_yes):
+                cur.discard(n)
+                print("  skipped")
+                continue
             hook(n, "install.sh", assume_yes); link_swiftbar(n, True)
         else:
             cur.discard(n); print(f"disabling {n}")

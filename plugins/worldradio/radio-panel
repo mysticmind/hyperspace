@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Super+Shift+R: the globe.
+#
+# Same shape as bin/cheatsheet-toggle and bin/plugin-ui - built on first run
+# and cached, so there is no build step to forget, no binary in the repo, and
+# it rebuilds itself whenever the source is newer than the cache.
+#
+# A second press closes the panel rather than stacking another copy behind the
+# first. Matched on the cache path, which is this binary's argv[0] and is not a
+# substring of anything else.
+#
+# Closing the panel does NOT stop the radio. That is deliberate: the point of a
+# radio is that it keeps playing while you work, and the menu bar item is there
+# to stop it. `radio stop`, or Stop in the menu bar, is how it goes quiet.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
+SRC="$HERE/radio-ui.swift"
+CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/hyperspace/radio-ui"
+
+if pids="$(pgrep -f "$CACHE" 2>/dev/null)" && [[ -n "$pids" ]]; then
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null
+  exit 0
+fi
+
+# There is no fallback for this one. The cheatsheet has a terminal version
+# because a list of keys is just text; a globe you drag is not, and a fake one
+# would be worse than saying so.
+if ! command -v swiftc >/dev/null 2>&1; then
+  osascript -e 'display alert "Hyperspace radio" message "The globe needs swiftc, which comes with the Xcode Command Line Tools:
+
+    xcode-select --install
+
+The menu bar item works without it - favourites, countries and transport controls are all there." as warning' >/dev/null 2>&1
+  exit 1
+fi
+
+if [[ ! -x "$CACHE" || "$SRC" -nt "$CACHE" ]]; then
+  mkdir -p "$(dirname "$CACHE")"
+  if ! swiftc -O -parse-as-library "$SRC" -o "$CACHE" 2>"$CACHE.log"; then
+    echo "radio-ui: build failed, see $CACHE.log" >&2
+    exit 1
+  fi
+fi
+
+exec "$CACHE" "$HERE/radio" "$HERE/world.json"

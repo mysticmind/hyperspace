@@ -185,6 +185,7 @@ A plugin is a directory under `plugins/`:
 ```
 plugins/<name>/
   plugin.toml        name + description                          (required)
+                     network = true, if it makes requests        (optional)
   bindings.toml      [mode.main.binding] lines to splice in      (optional)
   window-rules.toml  [[on-window-detected]] blocks               (optional)
   swiftbar/          menu bar plugins, linked into ~/.config/swiftbar
@@ -254,6 +255,71 @@ fails to build.
 | `screenshot` | `Super+P` region to clipboard, `Super+Shift+P` region to file |
 | `dictation` | [Handy](https://handy.computer): **Right Option held** = push-to-talk, **Super+D** = toggle start/stop |
 | `media` | now playing in the menu bar with transport controls for whichever player is running; `Super+Shift+[` / `]` prev/next, `Super+Shift+\\` play-pause |
+| `worldradio` | `Super+Shift+R` opens a globe you spin to find a station; `Super+Shift+U` tunes somewhere new. Needs `mpv`, and declares `network = true` |
+
+### The world radio
+
+`Super+Shift+R` puts a globe on screen. Drag it to spin, scroll to zoom, click
+a dot to hear that transmitter, click a country to list what it has. The panel
+is the same kind of thing as the cheatsheet and the plugin picker - a SwiftUI
+window compiled on first run and cached in `~/.local/state/hyperspace`, with no
+bundle, no binary in the repo and no build step.
+
+```
+drag  spin the globe      - =  zoom out / in      0  back to the whole world
+↑↓    move the list       [ ]  volume            f  favourite    m  mute
+/     search              ⏎    tune selected     r  random       s  stop
+g     spin to the selected station                             esc  close
+```
+
+Scroll or pinch over the globe zooms too, and there are `+` / `-` / reset
+buttons in its bottom-left corner - a gesture nobody can see is one nobody
+knows they have. `-` and `=` are the keys hyperspace already uses to shrink and
+grow a window, and `[` `]` are the volume plugin's, so there is no second
+mapping to learn.
+
+Closing the panel does not stop the radio; that is rather the point. The menu
+bar item is where it keeps playing from, with favourites, recents, transport
+and volume, and `Stop` when you have had enough.
+
+**It needs `mpv`** (`brew install mpv`) and nothing else. Not `jq`, not
+`socat`: mpv's IPC is newline-delimited JSON over a unix socket, which the
+`python3` hyperspace already requires speaks natively.
+
+mpv is **not** in the `Brewfile`, and that is deliberate: `./install.sh` acts on
+that file, so putting it there would install a media player on every machine
+running hyperspace, including the ones that never turn this plugin on. The
+`dictation` plugin treats Handy the same way. Instead:
+
+- `hyperspace-plugin enable worldradio` in a terminal offers to run
+  `brew install mpv` for you, and takes no for an answer.
+- Enabling from the menu bar or the plugin panel cannot ask - both pass
+  `--yes` and have no stdin - so the menu bar item says `◎⚠` and its dropdown
+  carries the command, with a click to copy it.
+- Without mpv everything except sound still works: the globe spins, search and
+  favourites work, and the panel says why nothing is playing.
+
+Nothing installs mpv without you saying so.
+
+**Dots are real locations, not guesses.** Only stations the directory has
+coordinates for go on the globe - about three thousand of them, fetched eight
+hundred at a time so there is a world to spin within a second or two. Scattering
+the rest around their country's centre would put forty dots in a heap in the
+middle of Kansas and imply a precision the data does not have, so the countries
+carry those instead: click one and you get its full list.
+
+**What it contacts, and when you ask it to:** the community-run
+[Radio Browser](https://www.radio-browser.info/) directory for stations, and
+whichever station you tune, for the audio. It sends no account, no key and no
+identity beyond a user agent naming the plugin. Favourites, history and volume
+stay in `~/.local/state/hyperspace/worldradio/`, and `plugin disable worldradio`
+stops the radio and leaves them there.
+
+**The map is Natural Earth 110m**, public domain, simplified to 69KB by
+`plugins/worldradio/world-build` - which is committed so the blob next to it can
+be regenerated and diffed rather than taken on trust. At that scale Natural
+Earth has no Malta, Singapore or Monaco, so those have no polygon to click;
+their stations are still there through search and the country list.
 
 ## Which terminal and browser those two keys open
 
@@ -455,9 +521,11 @@ avoid command paths containing spaces.
 
 It edits `karabiner.json`, sets system preferences and installs a login item,
 which is a lot of trust for a window manager setup. So the guarantees are
-tested rather than promised: no `sudo`, no network at runtime, no `eval` or
-pipe-to-shell, never writes to your shell config, never removes a Homebrew
-package on teardown, no `KeepAlive` in any LaunchAgent. `tests/properties.sh`
+tested rather than promised: no `sudo`, no network at runtime in the core, no
+`eval` or pipe-to-shell, never writes to your shell config, never removes a
+Homebrew package on teardown, no `KeepAlive` in any LaunchAgent. A plugin that
+needs the network has to declare `network = true` in its `plugin.toml`, and the
+test fails on any fetcher that never did. `tests/properties.sh`
 fails CI if any of those stops being true, and each check was verified by
 introducing the violation and confirming it is caught.
 

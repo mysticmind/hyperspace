@@ -28,7 +28,7 @@ These are enforced by `tests/properties.sh` in CI, not just promised here:
 | Property | Why it matters |
 |---|---|
 | No `sudo`, no `doas` | Nothing here needs root. A setup script asking for your password gives you no way to know what for. |
-| No network access at runtime | Nothing is downloaded, nothing is reported. Homebrew reaches the network during `install.sh`, acting on a `Brewfile` you can read. |
+| No network access at runtime, in the core | Nothing hyperspace itself runs downloads or reports anything. Homebrew reaches the network during `install.sh`, acting on a `Brewfile` you can read. A plugin may need to - `worldradio` is a radio - and must then declare `network = true` in its `plugin.toml`. The test enforces the declaration, not the abstinence: any fetcher, in shell, Python or Swift, that was never declared fails CI. |
 | No `eval`, nothing piped into a shell | The `curl \| bash` pattern turns any compromised host into arbitrary code. There is no download here to compromise. |
 | Never writes to your shell config | `~/.zshrc` and friends are yours. This is not a dotfiles manager. |
 | Never removes a Homebrew package on teardown | `uninstall.sh` prints the commands and lets you decide. |
@@ -58,6 +58,11 @@ and confirming it fails.
   `FelixKratz/formulae` (borders). It names them and asks; it will not trust
   them for you, and it stops rather than proceeding if you decline.
 - **Runs plugin hooks.** See below.
+- **Talks to the network, but only if you enable a plugin that says it will.**
+  Today that is `worldradio`, which asks the community-run Radio Browser
+  directory for stations and hands a stream URL to `mpv`. It is off until you
+  turn it on, `plugin enable` prints the declaration first, and the plugin
+  panel tags it. Nothing else here opens a socket.
 
 ## Plugins run code
 

@@ -16,6 +16,9 @@ struct Plugin: Codable, Identifiable {
     let name: String
     let description: String
     let enabled: Bool
+    // Optional so the panel still decodes a listing from an older bin/plugin
+    // that did not report it. Absent reads the same as false.
+    let network: Bool?
     var id: String { name }
 }
 
@@ -175,7 +178,22 @@ struct ContentView: View {
                 .frame(width: 12, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(p.name).font(.system(size: 13, weight: .medium))
+                HStack(spacing: 6) {
+                    Text(p.name).font(.system(size: 13, weight: .medium))
+                    // The command line prints the network declaration before
+                    // enabling and asks. This path cannot ask - a GUI toggle
+                    // passes --yes because it has no stdin - so the tag is
+                    // where that plugin gets to say what it does.
+                    if p.network == true {
+                        Text("network")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.14))
+                            .clipShape(Capsule())
+                    }
+                }
                 Text(p.description)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
