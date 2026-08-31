@@ -2,6 +2,16 @@
 # by bin/build-config, so nothing hardcodes where the repo was cloned.
 # macOS media keys already do this globally; these are for when your hands are
 # on the home row and Spotify is not focused.
-cmd-ctrl-alt-shift-period = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'         # next track
-cmd-ctrl-alt-shift-comma = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl previous'     # previous track
+#
+# Prev/next are on [ and ], NOT on , and . — Super+Shift with comma, period or
+# slash never reaches AeroSpace, and nothing in this file can fix that. An
+# HID-level event tap, the lowest CGEvent tap macOS offers, sees the modifiers
+# arrive as cmd+ctrl+alt+shift and then sees no keyDown for , . or / at all,
+# while Super+] with those same four modifiers and Super+, without Shift both
+# arrive normally. So the keypress dies below the entire CGEvent layer, which
+# rules out AeroSpace, the bindings and macOS shortcuts alike. Posting the same
+# chord synthetically DOES fire the binding, which is what makes this look like
+# a config bug when it is not one.
+cmd-ctrl-alt-shift-rightSquareBracket = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'      # next track
+cmd-ctrl-alt-shift-leftSquareBracket = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl previous'   # previous track
 cmd-ctrl-alt-shift-backslash = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl playpause'  # play / pause
