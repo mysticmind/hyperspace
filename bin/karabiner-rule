@@ -53,6 +53,18 @@ def install(cfg, rule_path, state_path):
     backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
     shutil.copy(cfg, backup)
 
+    # What the LAST install put in, read before we overwrite the state file.
+    # Descriptions get reworded between versions, and matching only the new
+    # ones leaves the old rule behind still bound to the same keys. That is
+    # not cosmetic: an orphan lacking to_after_key_up turns an emulated
+    # push-to-talk back into a toggle if it ever wins the match.
+    stale = []
+    if state_path.exists():
+        try:
+            stale = json.loads(state_path.read_text()).get("descriptions", [])
+        except (ValueError, OSError):
+            stale = []
+
     d, new_rules, state = load(cfg), load_rules(rule_path), {"backup": str(backup)}
     prof = d["profiles"][0]
     # Only a rule that actually binds caps_lock needs the simple modifications
@@ -61,7 +73,9 @@ def install(cfg, rule_path, state_path):
     state["descriptions"] = [r.get("description", "") for r in new_rules]
 
     rules = prof.setdefault("complex_modifications", {}).setdefault("rules", [])
-    marks = set(state["descriptions"])
+    marks = set(state["descriptions"]) | {s for s in stale if s}
+    retired = [r.get("description", "") for r in rules
+               if r.get("description", "") in marks - set(state["descriptions"])]
     rules[:] = [r for r in rules if r.get("description", "") not in marks]
     # Insert at the FRONT: Karabiner uses the first manipulator that matches a
     # key, so ours must precede any pre-existing rule on the same key. That
@@ -80,6 +94,8 @@ def install(cfg, rule_path, state_path):
 
     for desc in state["descriptions"]:
         print(f"karabiner: installed rule '{desc}'")
+    for desc in retired:
+        print(f"  retired superseded rule '{desc}'")
     print(f"  backup: {backup.name}")
     for r in removed:
         to = r["mod"]["to"][0].get("key_code")
