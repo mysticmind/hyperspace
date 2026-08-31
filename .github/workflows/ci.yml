@@ -103,6 +103,18 @@ jobs:
     needs: [properties]
     steps:
       - uses: actions/checkout@v4
+
+      # Homebrew 6 will not load a cask from a non-official tap until it is
+      # trusted, and a fresh runner trusts nothing. install.sh deliberately
+      # refuses to do this for you, so CI does it here where it is visible in
+      # the log rather than hidden inside the installer.
+      - name: trust the taps this repo needs
+        run: |
+          taps=$(grep -oE '^tap "[^"]+"' Brewfile | sed 's/^tap "//;s/"$//')
+          echo "trusting:" $taps
+          # shellcheck disable=SC2086
+          brew trust $taps
+
       - name: install then uninstall, and diff the machine
         env:
           HYPERSPACE_TEST_I_MEAN_IT: "1"

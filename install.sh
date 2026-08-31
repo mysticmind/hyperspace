@@ -63,6 +63,60 @@ fi
 # brew bundle is NOT fatal: the Brewfile carries one optional item (the Nerd
 # Font), and a font cask fails outright if you already installed those fonts
 # by hand. Required tools are verified individually below instead.
+# Homebrew 6 refuses to load formulae or casks from a non-official tap until
+# you trust it, because tapping one means running its maintainer's code. This
+# repo needs two: nikitabobko/tap for AeroSpace and FelixKratz/formulae for
+# borders. Without them the install dies on "Refusing to load cask ... from
+# untrusted tap", which reads like a bug in hyperspace and is not.
+#
+# Not trusted automatically. Homebrew put that gate there on purpose, and a
+# setup script quietly waving it through on your behalf is exactly the move
+# this repo promises not to make. So: say what it is, and let you decide.
+untrusted_taps() {
+  local taps
+  taps="$(grep -oE '^tap "[^"]+"' "$REPO/Brewfile" | sed 's/^tap "//;s/"$//')"
+  [[ -z "$taps" ]] && return 0
+  python3 - "$taps" <<'TRUST'
+import json, subprocess, sys
+want = [t.strip() for t in sys.argv[1].splitlines() if t.strip()]
+try:
+    out = subprocess.run(["brew", "trust", "--json", "v1"],
+                         capture_output=True, text=True, timeout=30).stdout
+    trusted = {t.lower() for t in json.loads(out or "{}").get("taps", [])}
+except Exception:
+    trusted = set()          # no store, or an older brew with no trust gate
+for t in want:
+    if t.lower() not in trusted:
+        print(t)
+TRUST
+}
+
+missing_trust="$(untrusted_taps)"
+if [[ -n "$missing_trust" ]]; then
+  log "Third-party taps needing your trust"
+  while read -r t; do [[ -n "$t" ]] && note "$t"; done <<< "$missing_trust"
+  note "Homebrew will not load a cask from these until they are trusted."
+  note "Trusting a tap means agreeing to run code its maintainer publishes."
+  if (( DRY )); then
+    would "brew trust $(echo "$missing_trust" | xargs)"
+  elif [[ -t 0 ]]; then
+    read -r -p "      trust them now? [y/N] " reply
+    if [[ "$reply" =~ ^[Yy] ]]; then
+      # shellcheck disable=SC2086
+      brew trust $(echo "$missing_trust" | xargs) || warn "brew trust failed"
+    else
+      echo "Not trusted, so the install cannot continue. To do it yourself:"
+      echo "  brew trust $(echo "$missing_trust" | xargs)"
+      exit 1
+    fi
+  else
+    echo "Not a terminal, so this cannot ask. Run:"
+    echo "  brew trust $(echo "$missing_trust" | xargs)"
+    echo "then re-run install.sh."
+    exit 1
+  fi
+fi
+
 log "Dependencies from Brewfile"
 if (( DRY )); then
   # --all, or brew lists only the formulae and silently hides every cask,

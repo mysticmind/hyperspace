@@ -52,6 +52,11 @@ and confirming it fails.
 - **Compiles two small Swift panels** on first use and caches the binaries in
   `~/.local/state/hyperspace`. Local compilation of source in the repo you
   cloned; nothing is fetched.
+- **Asks you to trust two Homebrew taps.** Homebrew 6 refuses to load a cask
+  from a non-official tap until it is trusted, because that means running code
+  its maintainer publishes. hyperspace needs `nikitabobko/tap` (AeroSpace) and
+  `FelixKratz/formulae` (borders). It names them and asks; it will not trust
+  them for you, and it stops rather than proceeding if you decline.
 - **Runs plugin hooks.** See below.
 
 ## Plugins run code

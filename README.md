@@ -64,6 +64,12 @@ cd ~/.local/share/hyperspace
 ./install.sh
 ```
 
+On Homebrew 6, the first run stops to ask you to trust two third-party taps
+(`nikitabobko/tap` for AeroSpace, `FelixKratz/formulae` for borders). Homebrew
+will not load a cask from an untrusted tap, because tapping one means running
+code its maintainer publishes. install.sh names them and asks; it will not
+trust them for you.
+
 `--dry-run` prints every package, file, symlink, preference, login agent and
 service it would change, and changes nothing. This script edits your keyboard
 configuration, so you should not have to take that on trust. See
