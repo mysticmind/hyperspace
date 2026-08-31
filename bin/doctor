@@ -93,6 +93,20 @@ if (( fail )); then
   echo "all three layers have to work for a chord to reach AeroSpace."
   exit 1
 fi
-echo "All three layers healthy. If a chord still does nothing, check that no"
-echo "other app claims it, and that focus is on a TILED window (layout commands"
-echo "no-op on floating ones)."
+echo "All three layers healthy. If a chord still does nothing:"
+echo
+echo "  - Check no other app claims it, and that focus is on a TILED window"
+echo "    (layout commands no-op on floating ones)."
+echo
+echo "  - The stack can be WEDGED while still reporting healthy. Every check"
+echo "    above reads config and process state; none of them proves a key"
+echo "    actually travels. A running Karabiner that has lost its grip, or an"
+echo "    AeroSpace that has not recomputed screen geometry, passes all three"
+echo "    and still eats every chord. Restart them:"
+echo
+echo "      launchctl kickstart -k gui/\$(id -u)/org.pqrs.service.agent.Karabiner-Core-Service-rev2"
+echo "      launchctl kickstart -k gui/\$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server"
+echo "      killall AeroSpace; sleep 2; open -a AeroSpace"
+echo
+echo "    AeroSpace needs a RESTART and not a reload after anything changes the"
+echo "    menu bar or Dock — it does not recompute the screen on its own."

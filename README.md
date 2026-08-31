@@ -89,9 +89,22 @@ binding becomes its description:
 cmd-ctrl-alt-w = 'close'   # close window
 ```
 
-The window is an ordinary Alacritty window with a known title, floated by an
-`on-window-detected` rule. The toggle is just "does a window with that title
-exist" — nothing resident, no helper process.
+The window is an ordinary Alacritty window with a known title. Three things
+place it, all of them settings on that window rather than machinery of ours: an
+`on-window-detected` rule floats it, Alacritty's own `window.level` pins it
+above other windows, and `bin/cheatsheet-toggle` centres it from the sheet's
+measured size. The toggle is just "does a window with that title exist" —
+nothing resident, no helper process.
+
+Centring is arithmetic, not a query: nothing can ask a window where it will
+land before it opens. `bin/cheatsheet-toggle` predicts the size from the glyph
+metrics of JetBrains Mono at 14 — `8.0` per column, `18.5` per line, plus
+Alacritty's `window.padding` on *each* side — and halves the remaining screen.
+Change the font or its size and those constants are wrong; `HYPERSPACE_SCALE`
+and `HYPERSPACE_Y_OFFSET` are there to correct it without editing the script.
+Get the size wrong by enough and the window is placed off screen, at which
+point macOS clamps it against an edge — which looks like bad centring but is
+not.
 
 ## Plugins
 
@@ -218,6 +231,7 @@ cluster is worse than none. `hjkl` still works inside resize mode.
 | `Super+A` | accordion ⇄ tiles |
 | `Super+F` | fullscreen (no gaps) |
 | `Super+K` | keybinding cheatsheet (toggle) |
+| `Super+Shift+K` | plugin panel (toggle) — `j`/`k` move, `space` toggles, `1`-`9` jump, `Esc` closes |
 | `Super+N` | macOS native fullscreen |
 | `Super+-` / `Super+=` | resize |
 | `Super+,` | balance sizes |
