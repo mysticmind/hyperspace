@@ -31,10 +31,31 @@ def read_toml(path):
         return tomllib.loads(text)
     except ModuleNotFoundError:
         pass
+    # Refuse what this cannot parse, rather than returning something wrong.
+    # A multi-line string parsed line-by-line yields a stray quote and looks
+    # like a description, so it would be silently wrong on 3.9 and correct on
+    # 3.11 - the worst kind of bug, one that only appears on someone else's
+    # machine. Scalars and arrays degrade to strings, which is survivable
+    # because only name and description are ever read; this is not.
+    if '"""' in text or "\'\'\'" in text:
+        raise ValueError(
+            f"{path.name}: multi-line strings need python 3.11+ (this is "
+            f"{'.'.join(str(v) for v in __import__('sys').version_info[:3])}). "
+            "Use a single-line value.")
+
     out = {}
     for line in text.splitlines():
         line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        if not line or line.startswith("#"):
+            continue
+        # Checked BEFORE the "no = sign" skip below: a [section] header has no
+        # equals in it, so testing for it after that skip never fired at all.
+        # Flattening a section silently merges tables TOML keeps apart.
+        if line.startswith("[") and line.endswith("]"):
+            raise ValueError(
+                f"{path.name}: [{line.strip('[]')}] sections need python 3.11+. "
+                "Keep plugin.toml to top-level keys.")
+        if "=" not in line:
             continue
         key, _, value = line.partition("=")
         value = value.strip()
