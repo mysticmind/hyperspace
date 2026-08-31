@@ -255,7 +255,7 @@ cluster is worse than none. `hjkl` still works inside resize mode.
 | `Super+Shift+M` | Spotify |
 | `Super+Shift+G` | Slack |
 | `Super+Esc` | lock screen |
-| `Super+Shift+;` | service mode (`Esc` reload · `R` reset layout · `F` float · `⌫` close others) |
+| `Super+Shift+;` | service mode (`Esc` reload · `R` reset layout · `F` float · `S` restart stack · `⌫` close others) |
 
 ## Gotchas worth knowing
 
@@ -356,6 +356,7 @@ install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
 bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
+bin/restart                       restart Karabiner + AeroSpace when the stack is wedged
 bin/cheatsheet                    parse aerospace.toml (text, or --json for the panel)
 bin/cheatsheet-toggle             Super+K show/hide, builds and caches the panel
 bin/cheatsheet-ui.swift           the cheatsheet panel (SwiftUI)

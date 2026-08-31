@@ -104,9 +104,9 @@ echo "    actually travels. A running Karabiner that has lost its grip, or an"
 echo "    AeroSpace that has not recomputed screen geometry, passes all three"
 echo "    and still eats every chord. Restart them:"
 echo
-echo "      launchctl kickstart -k gui/\$(id -u)/org.pqrs.service.agent.Karabiner-Core-Service-rev2"
-echo "      launchctl kickstart -k gui/\$(id -u)/org.pqrs.service.agent.Karabiner-Console-User-Server"
-echo "      killall AeroSpace; sleep 2; open -a AeroSpace"
+echo "      hyperspace-restart"
 echo
+echo "    or, if Super itself is dead so no chord can reach this, the same"
+echo "    thing is in the SwiftBar menu under Restart Karabiner + AeroSpace."
 echo "    AeroSpace needs a RESTART and not a reload after anything changes the"
 echo "    menu bar or Dock - it does not recompute the screen on its own."

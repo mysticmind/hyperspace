@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Restart the input stack: Karabiner, then AeroSpace.
+#
+# For the failure doctor cannot see. Every check it makes reads config or
+# process state, and none of them proves a key actually travels - a Karabiner
+# that has lost its grip, or an AeroSpace that has not recomputed screen
+# geometry after the menu bar changed, passes all three layers and still eats
+# every chord. This is the fix for that, in one command.
+#
+# Reachable three ways on purpose, because the thing that is broken determines
+# which of them still works:
+#
+#   Super+Shift+; then S    the chord. Needs Caps Lock -> Super to be alive, so
+#                           it is no use when Karabiner is the wedged half.
+#   SwiftBar -> Restart     the mouse. Works when no key does.
+#   hyperspace-restart      the terminal. Works when the menu bar is gone too.
+#
+# Order matters: Karabiner first so the key layer is live again, AeroSpace last
+# because it does not recompute screen geometry on its own and has to come up
+# against a menu bar whose state has settled.
+set -uo pipefail
+
+QUIET=0
+[[ "${1:-}" == "--quiet" ]] && QUIET=1
+log() { (( QUIET )) || printf '\033[1;36m==>\033[0m %s\n' "$*"; }
+
+log "Restarting Karabiner agents"
+for svc in Karabiner-Core-Service-rev2 Karabiner-Console-User-Server; do
+  launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.$svc" 2>/dev/null \
+    || log "  could not kick $svc (is Karabiner installed?)"
+done
+sleep 3
+
+# AeroSpace needs a RESTART and not a reload: it does not recompute screen
+# geometry when the menu bar or Dock changes, so a reload leaves it tiling
+# against stale bounds.
+#
+# Detached, because this script is usually a child of the AeroSpace it is about
+# to kill. `killall` signals by name and so would not reach us, but a child of
+# a dying parent is not a thing to bet the recovery path on: if we were killed
+# between the kill and the relaunch, AeroSpace would simply stay dead.
+log "Restarting AeroSpace"
+nohup bash -c 'killall AeroSpace 2>/dev/null; sleep 2; open -a AeroSpace' \
+  >/dev/null 2>&1 &
+disown 2>/dev/null || true
+
+sleep 5
+if pgrep -x AeroSpace >/dev/null; then
+  log "AeroSpace is back"
+else
+  log "AeroSpace did not come back - run: open -a AeroSpace"
+fi

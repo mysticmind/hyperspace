@@ -197,3 +197,8 @@ esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main']
 f = ['layout floating tiling', 'mode main']
 backspace = ['close-all-windows-but-current', 'mode main']
+# Restart Karabiner and AeroSpace. Note the chord can only help when AeroSpace
+# is the wedged half: if Karabiner is the problem then Caps Lock is not Super
+# any more and this binding cannot be typed at all. The SwiftBar menu entry and
+# `hyperspace-restart` exist for that case.
+s = ['exec-and-forget $HOME/.local/bin/hyperspace-restart', 'mode main']   # restart Karabiner + AeroSpace

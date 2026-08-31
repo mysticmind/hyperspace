@@ -101,4 +101,8 @@ echo "-- Super+Shift+; - service mode | font=Menlo size=12"
 
 echo "---"
 echo "Reload AeroSpace config | bash=$AS param1=reload-config terminal=false refresh=true"
+# The recovery path that does not need the keyboard. When Karabiner is the
+# wedged half, Caps Lock is not Super any more and no chord can be typed at
+# all, so a menu item is the only way in that is left.
+echo "Restart Karabiner + AeroSpace | bash=$HOME/.local/bin/hyperspace-restart param1=--quiet terminal=false refresh=true"
 echo "Refresh | refresh=true"
