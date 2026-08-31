@@ -49,9 +49,23 @@ def remove_shadowing_caps_mods(prof, state):
 def install(cfg, rule_path, state_path):
     if not cfg.exists():
         sys.exit(f"no karabiner.json at {cfg} - launch Karabiner-Elements once first")
-    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
-    shutil.copy(cfg, backup)
+    # One backup, of the config as it was BEFORE hyperspace first touched it.
+    # Re-running install used to add another every time, each a copy of an
+    # already-modified file, so they piled up in a directory that is often the
+    # user's own karabiner.ts project. If the previous state file still points
+    # at a backup that exists, keep it and make no new one.
+    backup = None
+    if state_path.exists():
+        try:
+            prev = json.loads(state_path.read_text()).get("backup")
+            if prev and pathlib.Path(prev).exists():
+                backup = pathlib.Path(prev)
+        except (ValueError, OSError):
+            backup = None
+    if backup is None:
+        stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
+        shutil.copy(cfg, backup)
 
     # What the LAST install put in, read before we overwrite the state file.
     # Descriptions get reworded between versions, and matching only the new
@@ -134,6 +148,14 @@ def uninstall(cfg, state_path, rule_path=None):
                     if dev.get("identifiers") == r["ids"]:
                         dev.setdefault("simple_modifications", []).append(r["mod"])
                         print(f"  restored device simple modification: caps_lock -> {r['mod']['to'][0].get('key_code')}")
+        bak = state.get("backup")
+        if bak:
+            b = pathlib.Path(bak)
+            # Only ours, and only in the shape we create. Never a file someone
+            # else put there that happens to sit alongside.
+            if b.exists() and ".bak.hyperspace." in b.name:
+                b.unlink()
+                print(f"  removed our backup: {b.name}")
         state_path.unlink()
     save(cfg, d)
 
