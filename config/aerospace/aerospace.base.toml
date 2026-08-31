@@ -49,6 +49,8 @@ outer.right = 6
 # windows out of that strip and you get an inconsistent layout (measured).
 # NOTE: toggling the menu bar or Dock needs an AeroSpace RESTART, not just
 # reload-config - it does not recompute screen geometry on that change.
+# `hyperspace-menubar toggle` (Super+Shift+B) does both halves; toggled from
+# somewhere else, `hyperspace-menubar sync` makes the tiling catch up.
 outer.top = 6
 
 # --- Floats: fixed-size windows fight the tiler ------------------------------
@@ -119,6 +121,7 @@ cmd-ctrl-alt-k = 'exec-and-forget $HOME/.local/bin/hyperspace-cheatsheet'   # th
 # of the cheatsheet with it, so this is where you go to put them back. It is a
 # native Swift panel, floated by the rule above.
 cmd-ctrl-alt-shift-k = 'exec-and-forget $HOME/.local/bin/hyperspace-plugins'   # plugins: enable / disable
+cmd-ctrl-alt-shift-b = 'exec-and-forget $HOME/.local/bin/hyperspace-menubar toggle'   # show / hide the menu bar
 cmd-ctrl-alt-n = 'macos-native-fullscreen'   # native fullscreen
 cmd-ctrl-alt-comma = 'balance-sizes'   # balance sizes
 

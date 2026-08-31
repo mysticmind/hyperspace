@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Show or hide the menu bar, and make the tiling follow.
+#
+# Usage: menubar [toggle|show|hide|sync]
+#
+# The second half is the point. AeroSpace reads the screen's usable height once
+# and caches it, and `reload-config` does not re-read it, so flipping the menu
+# bar on its own leaves every window sized for the screen it used to have:
+#
+#     menu bar hidden                 y=6   h=887
+#     menu bar shown, reload only     y=6   h=887   <- tucked under the bar
+#     menu bar shown, after restart   y=36  h=857
+#
+# Only a restart recomputes it. That is why this exists rather than a bare
+# `defaults write`: the write is the easy half.
+#
+# `sync` changes nothing and just restarts AeroSpace, for when the menu bar was
+# toggled somewhere this script did not see it - System Settings, another tool,
+# a second display arriving. Nothing here watches for that; hyperspace runs no
+# daemons, so the recomputation has to be asked for.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
+
+# _HIHideMenuBar is the HIDE flag, so it reads backwards from the verb: true
+# means the bar is hidden. Absent counts as false, which is the macOS default.
+hidden="$(defaults read NSGlobalDomain _HIHideMenuBar 2>/dev/null || echo 0)"
+
+case "${1:-toggle}" in
+  show)   want=false ;;
+  hide)   want=true ;;
+  toggle) [[ "$hidden" == "1" ]] && want=false || want=true ;;
+  sync)   want="" ;;
+  *) echo "usage: menubar [toggle|show|hide|sync]" >&2; exit 1 ;;
+esac
+
+if [[ -n "$want" ]]; then
+  defaults write NSGlobalDomain _HIHideMenuBar -bool "$want"
+  killall cfprefsd 2>/dev/null || true
+  sleep 2
+  [[ "$want" == "true" ]] && printf 'menu bar hidden\n' || printf 'menu bar shown\n'
+else
+  [[ "$hidden" == "1" ]] && printf 'menu bar is hidden\n' || printf 'menu bar is shown\n'
+fi
+
+# Restart AeroSpace only. Karabiner has nothing to do with screen geometry, and
+# kicking it would add three seconds to a toggle for no reason.
+exec "$HERE/restart" --aerospace-only --quiet

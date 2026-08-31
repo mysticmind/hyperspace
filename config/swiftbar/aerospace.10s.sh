@@ -104,5 +104,6 @@ echo "Reload AeroSpace config | bash=$AS param1=reload-config terminal=false ref
 # The recovery path that does not need the keyboard. When Karabiner is the
 # wedged half, Caps Lock is not Super any more and no chord can be typed at
 # all, so a menu item is the only way in that is left.
+echo "Toggle menu bar | bash=$HOME/.local/bin/hyperspace-menubar param1=toggle terminal=false refresh=true"
 echo "Restart Karabiner + AeroSpace | bash=$HOME/.local/bin/hyperspace-restart param1=--quiet terminal=false refresh=true"
 echo "Refresh | refresh=true"

@@ -89,6 +89,30 @@ It restores every file it displaced and every `defaults` key it changed, using
 values recorded at install time. **It does not uninstall Homebrew packages.**
 It prints the commands and lets you decide.
 
+## The menu bar, and why tiling has to be told
+
+hyperspace auto-hides the menu bar because that is what lets windows use the
+full display height: with it hidden macOS reports `visibleFrame` as the whole
+screen, so AeroSpace tiles all of it.
+
+Turning it back on is a one-line `defaults write`, but doing only that leaves
+every window where it was, tucked under the bar. AeroSpace reads the usable
+height once and caches it, and `reload-config` does not re-read it. Measured:
+
+```
+menu bar hidden                 y=6   h=887
+menu bar shown, reload only     y=6   h=887     <- under the bar
+menu bar shown, after restart   y=36  h=857
+```
+
+So `Super+Shift+B` does both halves: flips the setting, then restarts AeroSpace
+so the geometry is recomputed. `hyperspace-menubar show|hide|sync` is the same
+thing from a shell, and it is in the SwiftBar menu too.
+
+`sync` is for when the menu bar changed somewhere this could not see it -
+System Settings, another tool, a display arriving. Nothing watches for that:
+hyperspace runs no daemons, so the recomputation has to be asked for.
+
 ## The cheatsheet - `Super+K`
 
 A floating window listing every binding. Press `Super+K` again to close it.
@@ -244,6 +268,7 @@ cluster is worse than none. `hjkl` still works inside resize mode.
 | `Super+A` | accordion ⇄ tiles |
 | `Super+F` | fullscreen (no gaps) |
 | `Super+K` | keybinding cheatsheet (toggle) |
+| `Super+Shift+B` | show / hide the menu bar, and resize the tiling to match |
 | `Super+Shift+K` | plugin panel (toggle) - `j`/`k` move, `space` toggles, `1`-`9` jump, `Esc` closes |
 | `Super+N` | macOS native fullscreen |
 | `Super+-` / `Super+=` | resize |
@@ -370,6 +395,7 @@ bin/karabiner-rule                surgical add/remove of the Caps→Super rule
 bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
 bin/restart                       restart Karabiner + AeroSpace when the stack is wedged
+bin/menubar                       show/hide the menu bar and make the tiling follow
 bin/cheatsheet                    parse aerospace.toml (text, or --json for the panel)
 bin/cheatsheet-toggle             Super+K show/hide, builds and caches the panel
 bin/cheatsheet-ui.swift           the cheatsheet panel (SwiftUI)

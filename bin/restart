@@ -21,15 +21,24 @@
 set -uo pipefail
 
 QUIET=0
-[[ "${1:-}" == "--quiet" ]] && QUIET=1
+AEROSPACE_ONLY=0
+for a in "$@"; do
+  case "$a" in
+    --quiet) QUIET=1 ;;
+    # bin/menubar wants the geometry recomputed, not the key layer touched.
+    --aerospace-only) AEROSPACE_ONLY=1 ;;
+  esac
+done
 log() { (( QUIET )) || printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 
-log "Restarting Karabiner agents"
-for svc in Karabiner-Core-Service-rev2 Karabiner-Console-User-Server; do
-  launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.$svc" 2>/dev/null \
-    || log "  could not kick $svc (is Karabiner installed?)"
-done
-sleep 3
+if (( ! AEROSPACE_ONLY )); then
+  log "Restarting Karabiner agents"
+  for svc in Karabiner-Core-Service-rev2 Karabiner-Console-User-Server; do
+    launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.$svc" 2>/dev/null \
+      || log "  could not kick $svc (is Karabiner installed?)"
+  done
+  sleep 3
+fi
 
 # AeroSpace needs a RESTART and not a reload: it does not recompute screen
 # geometry when the menu bar or Dock changes, so a reload leaves it tiling

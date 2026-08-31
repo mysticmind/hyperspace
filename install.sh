@@ -100,6 +100,7 @@ link "$REPO/bin/cheatsheet-toggle" "$HOME/.local/bin/hyperspace-cheatsheet"
 link "$REPO/bin/close-window" "$HOME/.local/bin/hyperspace-close"
 link "$REPO/bin/doctor" "$HOME/.local/bin/hyperspace-doctor"
 link "$REPO/bin/restart" "$HOME/.local/bin/hyperspace-restart"
+link "$REPO/bin/menubar" "$HOME/.local/bin/hyperspace-menubar"
 link "$REPO/bin/plugin" "$HOME/.local/bin/hyperspace-plugin"
 link "$REPO/bin/plugin-ui" "$HOME/.local/bin/hyperspace-plugins"
 
