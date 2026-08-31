@@ -3,7 +3,7 @@
 
 A macOS `choose from list` panel rather than a terminal: pick the plugins that
 should be ON, and the difference against the current state is applied. Nothing
-is compiled and nothing is installed — osascript is already there.
+is compiled and nothing is installed - osascript is already there.
 
 Toggling goes through `bin/plugin`, never through the state file directly, so
 a pick here runs the same install.sh / uninstall.sh hooks, the same config
@@ -14,7 +14,7 @@ import pathlib, subprocess, sys, tomllib
 REPO = pathlib.Path(__file__).resolve().parent.parent
 PLUGINS = REPO/"plugins"
 STATE = pathlib.Path.home()/".local/state/hyperspace/enabled-plugins"
-SEP = "  —  "          # splits the row back into a name; see rows()
+SEP = "  -  "          # splits the row back into a name; see rows()
 
 
 def enabled():

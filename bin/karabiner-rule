@@ -48,7 +48,7 @@ def remove_shadowing_caps_mods(prof, state):
 
 def install(cfg, rule_path, state_path):
     if not cfg.exists():
-        sys.exit(f"no karabiner.json at {cfg} — launch Karabiner-Elements once first")
+        sys.exit(f"no karabiner.json at {cfg} - launch Karabiner-Elements once first")
     stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     backup = cfg.with_suffix(f".json.bak.hyperspace.{stamp}")
     shutil.copy(cfg, backup)
@@ -79,7 +79,7 @@ def install(cfg, rule_path, state_path):
     rules[:] = [r for r in rules if r.get("description", "") not in marks]
     # Insert at the FRONT: Karabiner uses the first manipulator that matches a
     # key, so ours must precede any pre-existing rule on the same key. That
-    # shadows the user's rule rather than deleting it — uninstall removes ours
+    # shadows the user's rule rather than deleting it - uninstall removes ours
     # and theirs starts working again.
     for r in reversed(new_rules):
         rules.insert(0, r)

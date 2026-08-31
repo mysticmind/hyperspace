@@ -1,6 +1,6 @@
 #!/bin/bash
 # AeroSpace workspaces for SwiftBar.
-# The 10s interval is only a fallback — aerospace.toml pushes an instant
+# The 10s interval is only a fallback - aerospace.toml pushes an instant
 # refresh via `open -g "swiftbar://refreshplugin?name=aerospace"` on every
 # workspace change, so this is never the thing you actually see.
 #
@@ -46,7 +46,7 @@ echo "Workspaces | size=11 color=#8a8a8a"
 for ws in $shown; do
   n=$("$AS" list-windows --workspace "$ws" 2>/dev/null | grep -c .)
   mark=" "; [ "$ws" = "$focused" ] && mark="●"
-  echo "$mark  $ws — $n window(s) | bash=$AS param1=workspace param2=$ws terminal=false refresh=true"
+  echo "$mark  $ws - $n window(s) | bash=$AS param1=workspace param2=$ws terminal=false refresh=true"
 done
 
 echo "---"
@@ -58,12 +58,12 @@ while IFS='|' read -r wid app title; do
   # strip any stray pipe from the title so SwiftBar's own param parsing
   # never sees one it did not put there
   title=$(echo "$title" | tr '|' '/' | cut -c1-45)
-  [ -n "$wid" ] && echo "  $app — $title | bash=$AS param1=focus param2=--window-id param3=$wid terminal=false refresh=true length=50"
+  [ -n "$wid" ] && echo "  $app - $title | bash=$AS param1=focus param2=--window-id param3=$wid terminal=false refresh=true length=50"
 done
 
 # A disabled plugin takes its keybindings out of the cheatsheet with it, so
 # without this there is nothing left anywhere pointing at how to switch one
-# back on — the CLI works, but you have to already know it exists.
+# back on - the CLI works, but you have to already know it exists.
 echo "---"
 echo "Plugins | size=11 color=#8a8a8a"
 STATE="$HOME/.local/state/hyperspace/enabled-plugins"
@@ -71,33 +71,33 @@ for d in "$REPO"/plugins/*/; do
   [ -d "$d" ] || continue
   name=$(basename "$d")
   if grep -qx "$name" "$STATE" 2>/dev/null; then
-    echo "  ● $name — on | bash=$REPO/bin/plugin param1=disable param2=$name terminal=false refresh=true"
+    echo "  ● $name - on | bash=$REPO/bin/plugin param1=disable param2=$name terminal=false refresh=true"
   else
-    echo "  ○ $name — off | bash=$REPO/bin/plugin param1=enable param2=$name terminal=false refresh=true"
+    echo "  ○ $name - off | bash=$REPO/bin/plugin param1=enable param2=$name terminal=false refresh=true"
   fi
 done
 
 echo "---"
 echo "Cheatsheet (Super = Caps Lock)"
-echo "-- Super+Return — terminal | font=Menlo size=12"
-echo "-- Super+Shift+Return — browser | font=Menlo size=12"
-echo "-- Super+Space — Raycast | font=Menlo size=12"
-echo "-- Super+W — close window | font=Menlo size=12"
-echo "-- Super+←↓↑→ / hjkl — focus | font=Menlo size=12"
-echo "-- Super+Shift+←↓↑→ — move window | font=Menlo size=12"
-echo "-- Super+1..9 — workspace | font=Menlo size=12"
-echo "-- Super+Shift+1..9 — send window there | font=Menlo size=12"
-echo "-- Super+Tab / Shift+Tab — next/prev ws | font=Menlo size=12"
-echo "-- Super+B — back and forth | font=Menlo size=12"
-echo "-- Alt+Tab — cycle windows in workspace | font=Menlo size=12"
-echo "-- Super+T — float / tile | font=Menlo size=12"
-echo "-- Super+E — flip split orientation | font=Menlo size=12"
-echo "-- Super+A — accordion / tiles | font=Menlo size=12"
-echo "-- Super+F — fullscreen | font=Menlo size=12"
-echo "-- Super+- / Super+= — resize | font=Menlo size=12"
-echo "-- Super+R — resize mode | font=Menlo size=12"
-echo "-- Super+Esc — lock screen | font=Menlo size=12"
-echo "-- Super+Shift+; — service mode | font=Menlo size=12"
+echo "-- Super+Return - terminal | font=Menlo size=12"
+echo "-- Super+Shift+Return - browser | font=Menlo size=12"
+echo "-- Super+Space - Raycast | font=Menlo size=12"
+echo "-- Super+W - close window | font=Menlo size=12"
+echo "-- Super+←↓↑→ / hjkl - focus | font=Menlo size=12"
+echo "-- Super+Shift+←↓↑→ - move window | font=Menlo size=12"
+echo "-- Super+1..9 - workspace | font=Menlo size=12"
+echo "-- Super+Shift+1..9 - send window there | font=Menlo size=12"
+echo "-- Super+Tab / Shift+Tab - next/prev ws | font=Menlo size=12"
+echo "-- Super+B - back and forth | font=Menlo size=12"
+echo "-- Alt+Tab - cycle windows in workspace | font=Menlo size=12"
+echo "-- Super+T - float / tile | font=Menlo size=12"
+echo "-- Super+E - flip split orientation | font=Menlo size=12"
+echo "-- Super+A - accordion / tiles | font=Menlo size=12"
+echo "-- Super+F - fullscreen | font=Menlo size=12"
+echo "-- Super+- / Super+= - resize | font=Menlo size=12"
+echo "-- Super+R - resize mode | font=Menlo size=12"
+echo "-- Super+Esc - lock screen | font=Menlo size=12"
+echo "-- Super+Shift+; - service mode | font=Menlo size=12"
 
 echo "---"
 echo "Reload AeroSpace config | bash=$AS param1=reload-config terminal=false refresh=true"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# hyperspace — AeroSpace + Caps-Lock-as-Super + SwiftBar in the native menu bar.
+# hyperspace - AeroSpace + Caps-Lock-as-Super + SwiftBar in the native menu bar.
 #
 # Design rules, learned the hard way from a setup that broke all of them:
 #   1. Never touch ~/.zshrc or any shell config. This repo is not a dotfiles manager.
@@ -27,7 +27,7 @@ BREW_PREFIX="$(brew --prefix)"
 # --- 0. Preflight -----------------------------------------------------------
 # A macOS Caps Lock remap (System Settings -> Keyboard -> Modifier Keys)
 # consumes the key before Karabiner ever sees it, so `from: caps_lock` never
-# matches and EVERY binding silently does nothing — with a perfectly correct
+# matches and EVERY binding silently does nothing - with a perfectly correct
 # config on disk. Catch it here rather than letting it look like a broken setup.
 log "Preflight"
 "$REPO/bin/doctor" --caps-only --fix || true
@@ -37,7 +37,7 @@ log "Preflight"
 # Font), and a font cask fails outright if you already installed those fonts
 # by hand. Required tools are verified individually below instead.
 log "Installing dependencies from Brewfile"
-brew bundle --file="$REPO/Brewfile" || warn "brew bundle reported failures — checking what actually matters"
+brew bundle --file="$REPO/Brewfile" || warn "brew bundle reported failures - checking what actually matters"
 
 missing=()
 for c in aerospace karabiner-elements swiftbar; do
@@ -52,11 +52,11 @@ if (( ${#missing[@]} )); then
 fi
 log "All required packages present"
 
-# The Nerd Font is optional — the SwiftBar plugin names it, and falls back to
+# The Nerd Font is optional - the SwiftBar plugin names it, and falls back to
 # the system font if it is absent. Do not fail the install over it.
 if ! ls "$HOME/Library/Fonts"/JetBrainsMono*Nerd* >/dev/null 2>&1 \
    && ! brew list --cask font-jetbrains-mono-nerd-font >/dev/null 2>&1; then
-  warn "JetBrains Mono Nerd Font not found — menu bar pills use the system font"
+  warn "JetBrains Mono Nerd Font not found - menu bar pills use the system font"
 fi
 
 # --- 2. Link configs --------------------------------------------------------
@@ -107,7 +107,7 @@ log "Adding the Caps Lock -> Super rule to your existing karabiner.json"
 "$REPO/bin/karabiner-rule" install --rule "$REPO/config/karabiner/caps-to-super.json"
 
 # Karabiner watches this file, but a stale user server will READ it without
-# APPLYING it — the log shows "Load ...karabiner.json..." with no
+# APPLYING it - the log shows "Load ...karabiner.json..." with no
 # "core_configuration is updated" after it, and core_service_daemon_client
 # refusing to connect with "Permission denied". Every key remap silently does
 # nothing until the agents are restarted. Kick them so the rule takes effect.
@@ -120,7 +120,7 @@ KLOG="$HOME/.local/share/karabiner/log/console_user_server.log"
 if [[ -f "$KLOG" ]] && tail -30 "$KLOG" | grep -q "core_configuration is updated"; then
   log "Karabiner applied the config"
 else
-  warn "Karabiner may not have applied the config — check $KLOG"
+  warn "Karabiner may not have applied the config - check $KLOG"
   warn "and open Karabiner-Elements once to grant any pending permission."
 fi
 

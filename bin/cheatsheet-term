@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# The cheatsheet as an Alacritty window — the fallback for machines with no
+# The cheatsheet as an Alacritty window - the fallback for machines with no
 # swiftc, where bin/cheatsheet-ui cannot build the native panel. Reached only
 # through bin/cheatsheet-toggle, never bound directly.
 #
 # Everything here exists because a terminal window cannot be asked where it
 # will land: the size is predicted from glyph metrics and the position is
-# arithmetic. The native panel has none of this — it measures itself. That is
+# arithmetic. The native panel has none of this - it measures itself. That is
 # the reason it is preferred.
 set -uo pipefail
 
@@ -20,7 +20,7 @@ read -r wid pid < <("$AS" list-windows --all --format '%{window-id}|%{app-pid}|%
 
 if [[ -n "${wid:-}" ]]; then
   # AeroSpace's `close` presses the window's Accessibility close button, and a
-  # decorations="none" window has none — so close is a silent no-op here and
+  # decorations="none" window has none - so close is a silent no-op here and
   # the sheet would never shut. Kill the instance instead: `open -na` gave it
   # its own process. Guarded, so a shared process is never killed out from
   # under other windows.
@@ -36,11 +36,11 @@ fi
 [[ -d /Applications/Alacritty.app ]] || { echo "Alacritty.app not found" >&2; exit 1; }
 
 # Centre it. AeroSpace cannot place a floating window, and Alacritty otherwise
-# lands wherever macOS cascades it — which put the sheet partly off the top of
+# lands wherever macOS cascades it - which put the sheet partly off the top of
 # the screen. Finder's desktop bounds give the display size with no special
 # permission; the glyph constants are measured for JetBrains Mono at size 14.
 # Ask the sheet how big it needs to be, so the window never scrolls and never
-# leaves dead space — and stays right as plugins add bindings.
+# leaves dead space - and stays right as plugins add bindings.
 read -r COLS LINES < <("$SHEET" --size 2>/dev/null)
 : "${COLS:=100}" "${LINES:=36}"
 read -r SW SH < <(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
@@ -56,7 +56,7 @@ read -r SW SH < <(osascript -e 'tell application "Finder" to get bounds of windo
 # SIDE, so the window is 2*PAD wider and taller than the text grid it holds.
 # Getting that wrong is not cosmetic: it over-estimated the height enough that
 # the requested origin pushed the window past the bottom of the screen, and
-# macOS clamped it back against the edge — which reads as "not centred" but is
+# macOS clamped it back against the edge - which reads as "not centred" but is
 # really "placed off screen and shoved back on".
 #
 # Measured for JetBrains Mono at size 14 with padding 14:
@@ -77,7 +77,7 @@ read -r POS_X POS_Y < <(awk -v sw="$SW" -v sh="$SH" -v c="$COLS" -v l="$LINES" -
 # are working in, and a sheet that slips behind that window reads as not having
 # opened. Alacritty 0.17 takes `Normal` or `AlwaysOnTop`.
 # Launched through LaunchServices (`open -na`) rather than as a child process.
-# A backgrounded terminal — even with nohup and disown — dies when the process
+# A backgrounded terminal - even with nohup and disown - dies when the process
 # group of whatever spawned it is torn down, and the window just flashes and
 # vanishes. `open` hands the launch to macOS, so it outlives this script.
 open -na Alacritty --args \

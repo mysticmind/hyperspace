@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Diagnose the three layers a keybinding has to survive. Run it when a chord
-# "does nothing" — the config is usually fine and the key is being eaten below.
+# "does nothing" - the config is usually fine and the key is being eaten below.
 #
-#   1. macOS modifier mapping   — can consume Caps Lock before Karabiner sees it
-#   2. Karabiner                — can read a config without applying it
-#   3. AeroSpace                — binding registered, command works
+#   1. macOS modifier mapping   - can consume Caps Lock before Karabiner sees it
+#   2. Karabiner                - can read a config without applying it
+#   3. AeroSpace                - binding registered, command works
 #
 # Usage: doctor [--fix]     (--fix clears a Caps Lock remap, with a backup)
 set -uo pipefail
@@ -17,7 +17,7 @@ for a in "$@"; do
   esac
 done
 STATE="$HOME/.local/state/hyperspace"
-CAPS_HID=30064771129          # 0x700000039 — Caps Lock
+CAPS_HID=30064771129          # 0x700000039 - Caps Lock
 fail=0
 ok()   { printf '  \033[1;32mok\033[0m    %s\n' "$*"; }
 bad()  { printf '  \033[1;31mFAIL\033[0m  %s\n' "$*"; fail=1; }
@@ -31,7 +31,7 @@ for key in $(defaults -currentHost read -g 2>/dev/null \
   if grep -q "MappingSrc = $CAPS_HID" <<<"$val"; then
     dst="$(grep -o 'MappingDst = [0-9]*' <<<"$val" | head -1 | awk '{print $3}')"
     bad "$key remaps Caps Lock (Src $CAPS_HID -> Dst $dst)"
-    echo "        Karabiner's 'from: caps_lock' can never match — the key is"
+    echo "        Karabiner's 'from: caps_lock' can never match - the key is"
     echo "        consumed before Karabiner sees it, so EVERY binding is dead."
     mapped=1
     if (( FIX )); then
@@ -56,7 +56,7 @@ CFG="$HOME/.config/karabiner/karabiner.json"
 if [[ -f "$CFG" ]] && grep -q "Caps Lock -> Super" "$CFG"; then
   ok "the Caps Lock -> Super rule is in karabiner.json"
 else
-  bad "no Caps Lock -> Super rule in $CFG — run install.sh"
+  bad "no Caps Lock -> Super rule in $CFG - run install.sh"
 fi
 KLOG="$HOME/.local/share/karabiner/log/console_user_server.log"
 if [[ -f "$KLOG" ]]; then
@@ -74,16 +74,16 @@ fi
 echo "3. AeroSpace"
 AS="$(command -v aerospace || echo /opt/homebrew/bin/aerospace)"
 if ! "$AS" list-workspaces --focused >/dev/null 2>&1; then
-  bad "AeroSpace is not responding — is it running?"
+  bad "AeroSpace is not responding - is it running?"
 else
   ok "AeroSpace is running"
   mode="$("$AS" list-modes --current 2>/dev/null)"
   if [[ "$mode" == "main" ]]; then ok "binding mode is 'main'"
-  else bad "binding mode is '$mode' — main bindings are inactive; press Esc"; fi
+  else bad "binding mode is '$mode' - main bindings are inactive; press Esc"; fi
   if "$AS" config --get mode.main.binding --keys 2>/dev/null | grep -q '^cmd-ctrl-alt-e$'; then
     ok "bindings are registered (cmd-ctrl-alt-e found)"
   else
-    bad "bindings not registered — run: aerospace reload-config"
+    bad "bindings not registered - run: aerospace reload-config"
   fi
 fi
 
@@ -109,4 +109,4 @@ echo "      launchctl kickstart -k gui/\$(id -u)/org.pqrs.service.agent.Karabine
 echo "      killall AeroSpace; sleep 2; open -a AeroSpace"
 echo
 echo "    AeroSpace needs a RESTART and not a reload after anything changes the"
-echo "    menu bar or Dock — it does not recompute the screen on its own."
+echo "    menu bar or Dock - it does not recompute the screen on its own."

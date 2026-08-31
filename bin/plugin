@@ -60,7 +60,7 @@ def swiftbar_undisable(paths):
     so `enable` actually means enabled.
 
     SwiftBar caches preferences in memory and rewrites them when it quits, so
-    a write behind its back is simply lost. It has to be stopped first — but
+    a write behind its back is simply lost. It has to be stopped first - but
     only when there is really something to clear, which is almost never.
     """
     want = {str(pathlib.Path(p).resolve()) for p in paths}
@@ -170,7 +170,7 @@ def main():
             cur.add(n); print(f"enabling {n}"); hook(n, "install.sh"); link_swiftbar(n, True)
         else:
             cur.discard(n); print(f"disabling {n}"); link_swiftbar(n, False); hook(n, "uninstall.sh")
-    # Write state, then roll it back if the rebuild rejects the result — a
+    # Write state, then roll it back if the rebuild rejects the result - a
     # colliding plugin must not stay "enabled" and break every later build.
     previous = enabled()
     write_enabled(cur)
@@ -179,7 +179,7 @@ def main():
         for n in names:
             if action == "enable":
                 link_swiftbar(n, False)
-        print("rolled back — plugin state unchanged")
+        print("rolled back - plugin state unchanged")
         sys.exit(1)
 
 

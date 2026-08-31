@@ -1,4 +1,4 @@
-# hyperspace — the whole dependency list. `brew bundle` from the repo root.
+# hyperspace - the whole dependency list. `brew bundle` from the repo root.
 
 tap "nikitabobko/tap"      # aerospace
 tap "FelixKratz/formulae"  # borders (JankyBorders)

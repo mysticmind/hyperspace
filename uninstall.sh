@@ -103,7 +103,7 @@ Done. Left in place on purpose:
       brew services stop FelixKratz/formulae/borders
       brew uninstall borders
       brew uninstall --cask aerospace swiftbar
-      # karabiner-elements is deliberately NOT in that list — you probably
+      # karabiner-elements is deliberately NOT in that list - you probably
       # had it before, and other rules of yours may depend on it.
 
   - The repo itself. Delete the directory when you are done with it.

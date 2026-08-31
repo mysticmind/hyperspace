@@ -1,21 +1,21 @@
 #!/bin/bash
-# JankyBorders — a thin ring around the focused window only.
+# JankyBorders - a thin ring around the focused window only.
 # Launched by `brew services start borders`; this file is executed by the
 # daemon on startup and messages the options across.
 #
 # Colours come from the Alacritty theme: 0xff9580ff is the cursor purple,
-# 0xff57c7ff is its blue. Omarchy's own is brighter — cyan into green,
+# 0xff57c7ff is its blue. Omarchy's own is brighter - cyan into green,
 # rgba(33ccffee)/rgba(00ff99ee) in Hyprland order, which is
-# gradient(top_left=0xee33ccff,bottom_right=0xee00ff99) here — but against a
+# gradient(top_left=0xee33ccff,bottom_right=0xee00ff99) here - but against a
 # dark terminal it shouts where this one just reads. For more punch without
 # leaving the terminal palette, swap the blue end for the theme's magenta:
 # gradient(top_left=0xff9580ff,bottom_right=0xffff6ac1)
 #
 # hidpi=on renders at native Retina resolution instead of a scaled 1x line.
-# It is most of why this reads sharp — a crisp thin edge looks stronger than
+# It is most of why this reads sharp - a crisp thin edge looks stronger than
 # a soft thick one.
 #
-# style takes round, square or uniform — parsed by first letter only
+# style takes round, square or uniform - parsed by first letter only
 # (style=%c in the binary), and `uniform` appears nowhere in the man page's
 # OPTIONS, only in its NOMENCLATURE list. round is the one that matches each
 # window: borders calls SLSWindowIteratorGetCornerRadii, a private SkyLight

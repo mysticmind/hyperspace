@@ -17,7 +17,7 @@ CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/hyperspace/plugin-ui"
 # Super+Shift+K is a toggle, the same as Super+K is for the cheatsheet: a
 # second press closes the panel instead of stacking another copy behind the
 # first. Matched on the cache path, which is this binary's argv[0] and is not
-# a substring of anything else — in particular not of this wrapper, which
+# a substring of anything else - in particular not of this wrapper, which
 # lives in the repo's bin/ under a different path.
 if pids="$(pgrep -f "$CACHE" 2>/dev/null)" && [[ -n "$pids" ]]; then
   # shellcheck disable=SC2086

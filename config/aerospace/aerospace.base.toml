@@ -1,7 +1,7 @@
-# GENERATED FROM THIS FILE — edit aerospace.base.toml, not aerospace.toml.
+# GENERATED FROM THIS FILE - edit aerospace.base.toml, not aerospace.toml.
 # `bin/build-config` splices enabled plugins in at the @plugin-*@ markers.
 #
-# AeroSpace — Omarchy-style tiling. Super = Caps Lock (⌘⌃⌥ via Karabiner).
+# AeroSpace - Omarchy-style tiling. Super = Caps Lock (⌘⌃⌥ via Karabiner).
 # Native AeroSpace commands only: no helper daemons, no /tmp signalling.
 # Docs: https://nikitabobko.github.io/AeroSpace/guide
 
@@ -24,7 +24,7 @@ default-root-container-orientation = 'auto'
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
-# Push a workspace update to SwiftBar the instant it changes — no polling.
+# Push a workspace update to SwiftBar the instant it changes - no polling.
 exec-on-workspace-change = ['/bin/bash', '-c',
   'open -g "swiftbar://refreshplugin?name=aerospace"']
 
@@ -43,12 +43,12 @@ outer.left = 6
 outer.bottom = 6
 outer.right = 6
 # 6, and the menu bar is set to auto-hide (_HIHideMenuBar), which makes
-# macOS report visibleFrame as the FULL display height — so windows also
+# macOS report visibleFrame as the FULL display height - so windows also
 # reclaim the 30pt menu bar strip.
 # Do not try a negative gap to tile under a *visible* menu bar: macOS clamps
 # windows out of that strip and you get an inconsistent layout (measured).
 # NOTE: toggling the menu bar or Dock needs an AeroSpace RESTART, not just
-# reload-config — it does not recompute screen geometry on that change.
+# reload-config - it does not recompute screen geometry on that change.
 outer.top = 6
 
 # --- Floats: fixed-size windows fight the tiler ------------------------------
@@ -94,7 +94,7 @@ cmd-ctrl-alt-space = 'exec-and-forget open -a Raycast'   # launcher
 # The script checks for the button first, and sends Cmd+W only when there is none.
 cmd-ctrl-alt-w = 'exec-and-forget $HOME/.local/bin/hyperspace-close'   # close window
 
-# Focus — arrows and vim keys both (omarchy: Super+Arrows)
+# Focus - arrows and vim keys both (omarchy: Super+Arrows)
 cmd-ctrl-alt-left = 'focus left'
 cmd-ctrl-alt-down = 'focus down'
 cmd-ctrl-alt-up = 'focus up'

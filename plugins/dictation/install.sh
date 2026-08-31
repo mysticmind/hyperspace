@@ -26,7 +26,7 @@ if b != "fn+f19":
     print("           Set it to fn+F19 in Handy > Settings > Bindings.")
 PY
 else
-  echo "  WARNING: Handy settings not found — is handy.computer installed?"
+  echo "  WARNING: Handy settings not found - is handy.computer installed?"
 fi
 
 "$REPO/bin/karabiner-rule" install --rule "$HERE/karabiner-rules.json" --state "$STATE"

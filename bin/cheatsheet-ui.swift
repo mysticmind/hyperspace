@@ -9,12 +9,12 @@
 // bin/cheatsheet-term for machines with no swiftc): a terminal window cannot be
 // asked how big it will be, so that path had to predict its own size from the
 // glyph metrics of a particular font at a particular size, then do arithmetic
-// to centre it — constants that go silently wrong when the font changes, and
+// to centre it - constants that go silently wrong when the font changes, and
 // which put the window off screen when they drift far enough. A native window
 // measures itself. Centring is then a fact rather than a guess.
 //
-// Colours are all semantic — Color.primary, .secondary and the window's own
-// background — so light and dark mode both come out right with no palette of
+// Colours are all semantic - Color.primary, .secondary and the window's own
+// background - so light and dark mode both come out right with no palette of
 // our own to maintain.
 import AppKit
 import SwiftUI
@@ -31,7 +31,7 @@ struct Section: Codable {
 
 // A flattened cheatsheet entry. Headers and bindings share one list so the
 // column splitter can balance on rendered height rather than on sections,
-// which are wildly uneven — `main` dwarfs the two mode sections.
+// which are wildly uneven - `main` dwarfs the two mode sections.
 enum Item {
     case header(String)
     case binding(Row)
@@ -61,7 +61,7 @@ func flatten(_ sections: [Section]) -> [Item] {
     return items
 }
 
-// Equal-height columns, never breaking directly after a header — a header
+// Equal-height columns, never breaking directly after a header - a header
 // stranded at the foot of a column labels nothing.
 func split(_ items: [Item], into columns: Int) -> [[Item]] {
     guard columns > 1, !items.isEmpty else { return [items] }
@@ -151,7 +151,7 @@ struct ContentView: View {
 }
 
 // AppKit drives the window rather than SwiftUI's App lifecycle: this binary has
-// no .app bundle — that is the point, there is nothing to install — and without
+// no .app bundle - that is the point, there is nothing to install - and without
 // one a `Window` scene never actually appears.
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
@@ -183,7 +183,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // sit above that window rather than behind it.
         window.level = .floating
 
-        // NSWindow.center() is not a true centre — AppKit places the window
+        // NSWindow.center() is not a true centre - AppKit places the window
         // about a third of the way down. visibleFrame so it never lands under
         // the Dock, and it already accounts for the menu bar either way.
         //

@@ -1,14 +1,14 @@
 // Native plugin panel, on Super+Shift+K. Built on first run by bin/plugin-ui.
 //
 // This owns no state and parses no TOML: it shells out to bin/plugin for
-// everything — `list --json` to read, `enable`/`disable` to write — so a
+// everything - `list --json` to read, `enable`/`disable` to write - so a
 // toggle here runs the same hooks, config rebuild and rollback-on-collision
 // as the command line, and there is one source of truth for what a plugin is.
 //
 // Keyboard first. The panel is opened by a chord, so a window that then needs
 // the mouse to flip one switch defeats the point: j/k or the arrows move, space
 // toggles, 1-9 jump straight to a row, esc closes. The switches still work for
-// a pointer — they are simply not the path this is built around.
+// a pointer - they are simply not the path this is built around.
 import AppKit
 import SwiftUI
 
@@ -47,7 +47,7 @@ func load() -> [Plugin] {
     return list
 }
 
-// Keys arrive through an AppKit monitor rather than SwiftUI's focus system —
+// Keys arrive through an AppKit monitor rather than SwiftUI's focus system:
 // this binary has no .app bundle, and without one the window never reliably
 // becomes first responder for .onKeyPress. A reference type is what lets the
 // monitor's closure mutate the same state the view is rendering.
@@ -166,7 +166,7 @@ struct ContentView: View {
     private func row(_ i: Int, _ p: Plugin) -> some View {
         let selected = i == model.selection
         return HStack(spacing: 14) {
-            // The number is the shortcut, not decoration — it is what 1-9 acts
+            // The number is the shortcut, not decoration - it is what 1-9 acts
             // on, so it has to be visible to be usable.
             Text("\(i + 1)")
                 .font(.system(size: 10, design: .monospaced))
@@ -182,7 +182,7 @@ struct ContentView: View {
             }
             Spacer(minLength: 8)
             // A rebuild plus an AeroSpace reload is not instant, and a switch
-            // that springs back looks broken — so the row shows it is working.
+            // that springs back looks broken - so the row shows it is working.
             if model.busy.contains(p.name) {
                 ProgressView().controlSize(.small)
             } else {
@@ -206,7 +206,7 @@ struct ContentView: View {
 }
 
 // AppKit drives the window rather than SwiftUI's App lifecycle. This binary
-// has no .app bundle — that is the point, there is nothing to install — and
+// has no .app bundle - that is the point, there is nothing to install - and
 // without one a `Window` scene never actually appears: the process runs
 // happily with no window at all. Creating the NSWindow by hand and hosting
 // the SwiftUI view in it works with no bundle, no Info.plist and no signing.
@@ -230,11 +230,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
         // Above ordinary windows, not just above this app's own. It is summoned
         // by a chord over whatever you are working in, so it has to sit on top
-        // of that — a panel that slips behind the window you called it from
+        // of that - a panel that slips behind the window you called it from
         // reads as not having opened at all.
         window.level = .floating
 
-        // NSWindow.center() is not a true centre — AppKit puts the window
+        // NSWindow.center() is not a true centre - AppKit puts the window
         // roughly a third of the way down, which reads as "too high" next to
         // the cheatsheet. Centre on visibleFrame by hand: visibleFrame rather
         // than frame so the panel never sits under the Dock, and it already

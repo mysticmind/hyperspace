@@ -2,7 +2,7 @@
 # Super+W: close the focused window.
 #
 # AeroSpace's `close` presses the window's Accessibility close button, so a
-# window that has no close button cannot be closed that way — `close` exits 0,
+# window that has no close button cannot be closed that way - `close` exits 0,
 # moves focus, and leaves the window standing. Alacritty with the
 # decorations = "none" the installer recommends is exactly that window, which
 # is why Super+W looked dead on terminals and worked everywhere else.

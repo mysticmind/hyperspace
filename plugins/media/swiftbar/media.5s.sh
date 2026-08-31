@@ -16,7 +16,7 @@ IFS=$'\t' read -r app state artist track album <<<"$info"
 if [[ "$state" == "playing" ]]; then icon="▶"; else icon="⏸"; fi
 # length= lets SwiftBar truncate long titles instead of shoving the menu bar around
 if [[ -n "$artist" ]]; then
-  echo "$icon $artist — $track | length=32"
+  echo "$icon $artist - $track | length=32"
 else
   echo "$icon $track | length=32"
 fi

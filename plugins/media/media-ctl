@@ -4,14 +4,14 @@
 # app is discovered instead of hardcoded.
 #
 # WHY NOT SYSTEM MEDIA KEYS, which would cover browser tabs too and need no
-# list at all: macOS ignores synthesized ones. Measured on 26.6 — posting
+# list at all: macOS ignores synthesized ones. Measured on 26.6 - posting
 # NSSystemDefined media keys from a compiled binary with Accessibility granted
 # (AXIsProcessTrusted true) changes nothing, and MRMediaRemoteSendCommand
 # returns true while doing nothing, MRMediaRemoteGetNowPlayingInfo returns
 # empty. Apple restricted MediaRemote to signed callers in 15.4. So no
 # player-agnostic route survives, and naming the players is what is left.
 #
-# To add a player it must speak the iTunes vocabulary — player state, current
+# To add a player it must speak the iTunes vocabulary - player state, current
 # track, artist/name/album, playpause/next track/previous track. Music,
 # Spotify and the rest below all do. VLC and IINA do not and would each need
 # their own dialect. Browsers cannot be covered this way at all.

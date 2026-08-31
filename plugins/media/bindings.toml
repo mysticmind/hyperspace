@@ -1,10 +1,10 @@
 # The plugin-dir token below is replaced with this plugin's own directory
 # by bin/build-config, so nothing hardcodes where the repo was cloned.
-# These act on whichever supported player is running — media-ctl discovers it
+# These act on whichever supported player is running - media-ctl discovers it
 # rather than naming one. A keyboard with real media keys already does this
 # globally; these are for when your hands are on the home row.
 #
-# Prev/next are on [ and ], NOT on , and . — Super+Shift with comma, period or
+# Prev/next are on [ and ], NOT on , and . - Super+Shift with comma, period or
 # slash never reaches AeroSpace, and nothing in this file can fix that. An
 # HID-level event tap, the lowest CGEvent tap macOS offers, sees the modifiers
 # arrive as cmd+ctrl+alt+shift and then sees no keyDown for , . or / at all,

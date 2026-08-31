@@ -111,7 +111,7 @@ def render_lines(bs):
 
 def layout(lines, columns=2):
     """Equal-height columns. Cutting only on blank lines leaves one column
-    enormous when a single section dominates, so cut anywhere — just never
+    enormous when a single section dominates, so cut anywhere - just never
     directly after a section header, which would strand it at a column foot."""
     if columns < 2 or not lines:
         return [lines]
@@ -149,7 +149,7 @@ def main():
     sections = parse(CONFIG)
 
     # The native panel renders its own layout, so it wants the structure, not
-    # the ANSI art. Same parse either way — there is still one source of truth
+    # the ANSI art. Same parse either way - there is still one source of truth
     # for what the bindings are.
     if "--json" in sys.argv:
         import json
@@ -160,11 +160,11 @@ def main():
 
     columns = 1 if "--one-column" in sys.argv else 2
     body = compose(sections, columns)
-    title = "hyperspace — keybindings    (Super = Caps Lock)"
+    title = "hyperspace - keybindings    (Super = Caps Lock)"
     width = max(len(l) for l in body) if body else 60
 
     if "--size" in sys.argv:
-        # cols, lines — the toggle sizes the window from this, so the sheet
+        # cols, lines - the toggle sizes the window from this, so the sheet
         # never scrolls and never leaves empty space.
         print(max(width, len(title) + 4) + 2, len(body) + 6)
         return
