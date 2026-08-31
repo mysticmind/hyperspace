@@ -40,7 +40,7 @@ log "Installing dependencies from Brewfile"
 brew bundle --file="$REPO/Brewfile" || warn "brew bundle reported failures — checking what actually matters"
 
 missing=()
-for c in aerospace karabiner-elements swiftbar jordanbaird-ice; do
+for c in aerospace karabiner-elements swiftbar; do
   brew list --cask "$c" >/dev/null 2>&1 || missing+=("cask $c")
 done
 brew list borders >/dev/null 2>&1 || missing+=("formula borders")
@@ -149,11 +149,11 @@ defaults write com.ameba.SwiftBar PluginDirectory -string "$HOME/.config/swiftba
 log "SwiftBar plugin directory -> ~/.config/swiftbar"
 
 # --- 6. Launch at login -----------------------------------------------------
-# SwiftBar and Ice register login items through SMAppService, which only the
-# app itself can call. A LaunchAgent that opens them at login does the same
-# job with nothing resident. AeroSpace and borders handle their own.
-log "Registering login agents for SwiftBar and Ice"
-"$REPO/bin/login-agent" install SwiftBar Ice
+# SwiftBar registers its login item through SMAppService, which only the app
+# itself can call. A LaunchAgent that opens it at login does the same job with
+# nothing resident. AeroSpace and borders handle their own.
+log "Registering login agent for SwiftBar"
+"$REPO/bin/login-agent" install SwiftBar
 
 # --- 7. Start everything ----------------------------------------------------
 # AeroSpace LAST and always restarted: it does not recompute screen geometry
@@ -161,7 +161,6 @@ log "Registering login agents for SwiftBar and Ice"
 log "Starting services"
 brew services start FelixKratz/formulae/borders >/dev/null 2>&1 || warn "borders service failed to start"
 open -a SwiftBar 2>/dev/null || warn "SwiftBar failed to launch"
-open -a Ice 2>/dev/null || warn "Ice failed to launch"
 killall AeroSpace 2>/dev/null || true
 sleep 2
 open -a AeroSpace 2>/dev/null || warn "AeroSpace failed to launch"
@@ -184,9 +183,9 @@ Steps this script cannot do for you:
 
 Plugins:  hyperspace-plugin list | enable <name> | disable <name>
 
-Everything starts at login: AeroSpace and borders on their own, SwiftBar and
-Ice via LaunchAgents. If you later tick "Launch at Login" inside SwiftBar or
-Ice, run `bin/login-agent uninstall SwiftBar Ice` first or they launch twice.
+Everything starts at login: AeroSpace and borders on their own, SwiftBar via a
+LaunchAgent. If you later tick "Launch at Login" inside SwiftBar, run
+`bin/login-agent uninstall SwiftBar` first or it launches twice.
 
 Homebrew packages are NOT removed by uninstall.sh, by design. See README.
 EOF

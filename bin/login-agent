@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Launch-at-login for apps whose own setting we cannot reach.
 #
-# SwiftBar and Ice register login items through SMAppService, which only the
-# app itself can call — no shell, no defaults key, and `osascript` needs
+# SwiftBar, and apps like it, register login items through SMAppService, which
+# only the app itself can call — no shell, no defaults key, and `osascript` needs
 # Automation permission it usually does not have. A LaunchAgent that simply
 # `open`s the app at login does the same job with no daemon: RunAtLoad only,
 # no KeepAlive, nothing resident.

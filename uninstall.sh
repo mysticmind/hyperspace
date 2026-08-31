@@ -37,6 +37,8 @@ for b in hyperspace-cheatsheet hyperspace-close hyperspace-doctor hyperspace-plu
 done
 
 # --- 1b. Login agents -------------------------------------------------------
+# Ice is no longer part of hyperspace, but older installs registered an agent
+# for it. Keep it in the uninstall list so those get cleaned up too.
 "$REPO/bin/login-agent" uninstall SwiftBar Ice 2>/dev/null || true
 
 # --- 2. Unlink configs, restore what we displaced ---------------------------
@@ -100,7 +102,7 @@ Done. Left in place on purpose:
   - Every Homebrew package. Remove them yourself if you want them gone:
       brew services stop FelixKratz/formulae/borders
       brew uninstall borders
-      brew uninstall --cask aerospace swiftbar jordanbaird-ice
+      brew uninstall --cask aerospace swiftbar
       # karabiner-elements is deliberately NOT in that list — you probably
       # had it before, and other rules of yours may depend on it.
 
@@ -109,8 +111,11 @@ Done. Left in place on purpose:
   - Accessibility / Input Monitoring entries in System Settings -> Privacy.
     macOS lets no script remove those. They are inert once the apps are gone.
 
-  - "Launch at Login" for SwiftBar and Ice, if you enabled it. Turn it off in
-    each app, or in System Settings -> General -> Login Items.
+  - "Launch at Login" for SwiftBar, if you enabled it. Turn it off in the app,
+    or in System Settings -> General -> Login Items.
+
+  - /Applications/Ice.app, if an older hyperspace installed it. It is no longer
+    part of this setup: `rm -rf /Applications/Ice.app` if you want it gone.
 
 The menu bar returns on the next login if it has not already.
 EOF

@@ -22,11 +22,38 @@ Zero gaps, edge to edge, with a thin ring on the focused window.
 | [AeroSpace](https://github.com/nikitabobko/AeroSpace) | tiling window manager |
 | [Karabiner-Elements](https://karabiner-elements.pqrs.org/) | Caps Lock → Super (⌘⌃⌥) |
 | [SwiftBar](https://github.com/swiftbar/SwiftBar) | workspace pills as a native menu bar item |
-| [Ice](https://github.com/jordanbaird/Ice) | menu bar overflow management |
 | [JankyBorders](https://github.com/FelixKratz/JankyBorders) | ring around the focused window |
 
 No custom daemons. No focus-follows-mouse shim, no gesture capture, no private
 APIs. Everything here is a config file for a tool someone else maintains.
+
+### Why there is no menu bar overflow manager
+
+Earlier versions used [Ice](https://github.com/jordanbaird/Ice) to hide menu bar
+overflow. It is gone, because it and hyperspace want opposite things.
+
+hyperspace auto-hides the menu bar so AeroSpace can reclaim the 30pt strip — the
+bar is off screen most of the time, which leaves an overflow manager very little
+to manage. Meanwhile Ice on macOS 26 struggles with exactly the items that end
+up hidden here: on this setup all fourteen were Control Centre items (Wi-Fi,
+Bluetooth, Sound, Battery), which macOS vends from a single process. Ice cannot
+resolve an owning PID for them —
+
+```
+MenuBarItemManager  Missing sourcePID for <…:Item-0 (windowID: 148)>
+MenuBarItemManager  Clearing cached menu bar item windowIDs
+```
+
+— so it cannot forward a click to them, and it invalidates its cache twice a
+second trying. Clicking a hidden item in the Ice Bar did nothing; letting Ice
+expand items into the real menu bar instead ran into its "smart" auto-rehide,
+which fires as soon as the auto-hidden bar drops. Two settings pulling against
+each other, for a feature worth little once the bar is hidden anyway.
+
+For the record, on the crash that came first: the `jordanbaird-ice` cask is
+stable 0.11.12, built October 2024, and it traps ~0.7s into every launch on
+macOS 26. Upstream's `0.11.13-dev.2` prerelease fixes that much. If you want Ice
+back, install it yourself — hyperspace no longer has an opinion about it.
 
 ## Install
 
@@ -313,7 +340,7 @@ Written down because the setup this replaced broke every one of them:
 Brewfile                          dependencies
 install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
-bin/login-agent                   launch-at-login for SwiftBar and Ice
+bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
 bin/cheatsheet                    render the cheatsheet from aerospace.toml
 bin/cheatsheet-toggle             Super+K show/hide
