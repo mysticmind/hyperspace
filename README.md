@@ -55,6 +55,20 @@ stable 0.11.12, built October 2024, and it traps ~0.7s into every launch on
 macOS 26. Upstream's `0.11.13-dev.2` prerelease fixes that much. If you want Ice
 back, install it yourself - hyperspace no longer has an opinion about it.
 
+## Requirements
+
+| Needed | Why | If missing |
+|---|---|---|
+| macOS | it drives AeroSpace, Karabiner and the macOS menu bar | refuses |
+| Homebrew | everything else installs through it | refuses, links to brew.sh |
+| `python3` 3.9+ | config generation, cheatsheet, plugin manager | refuses, `xcode-select --install` |
+| `swiftc` | the native cheatsheet and plugin panels | warns, falls back |
+| a terminal | `Super+Return` | uses whichever you have, else `Terminal` |
+
+macOS ships python 3.9 and `swiftc` with the Command Line Tools, so
+`xcode-select --install` covers both. `install.sh` checks each one before it
+touches anything and names the command that fixes it.
+
 ## Install
 
 ```sh

@@ -38,8 +38,47 @@ warn()  { printf '\033[1;33m warn\033[0m %s\n' "$*"; }
 note()  { printf '      %s\n' "$*"; }
 would() { printf '      \033[1;35mwould\033[0m %s\n' "$*"; }
 
-[[ "$(uname -s)" == "Darwin" ]] || { echo "macOS only"; exit 1; }
-command -v brew >/dev/null || { echo "Homebrew required: https://brew.sh"; exit 1; }
+# Prerequisites, checked before anything is touched and each with the command
+# that fixes it. A setup script that dies three steps in on a missing tool it
+# never mentioned is worse than one that refuses at the door.
+die() { printf '\033[1;31mFAIL\033[0m %s\n' "$1" >&2; shift; printf '      %s\n' "$@" >&2; exit 1; }
+
+[[ "$(uname -s)" == "Darwin" ]] || die "hyperspace is macOS only." \
+  "It drives AeroSpace, Karabiner-Elements and the macOS menu bar."
+
+command -v brew >/dev/null || die "Homebrew is required and was not found." \
+  "Install it from https://brew.sh, then re-run this script." \
+  "If it is installed but not on PATH, open a new shell first."
+
+# python3 is not optional: build-config generates aerospace.toml, and the
+# cheatsheet, plugin manager and Karabiner merge are all Python. macOS ships a
+# stub at /usr/bin/python3 that only works once the Command Line Tools are
+# installed, so "the file exists" is not the same as "it runs".
+if ! python3 -c 'pass' >/dev/null 2>&1; then
+  die "python3 is required and does not run." \
+    "macOS ships a stub that needs the Command Line Tools:" \
+    "  xcode-select --install" \
+    "or use Homebrew's:" \
+    "  brew install python"
+fi
+
+# 3.9, which is what macOS itself ships, so the Command Line Tools are enough
+# and nobody has to install a second python. This used to demand 3.11 for
+# tomllib until it turned out that was two string fields' worth of dependency;
+# bin/plugin reads plugin.toml directly now.
+if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev/null; then
+  found="$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))' 2>/dev/null || echo unknown)"
+  die "python3 3.9 or newer is required (found $found)." \
+    "macOS ships 3.9, so the Command Line Tools are enough:" \
+    "  xcode-select --install"
+fi
+
+# swiftc is optional and only affects how two windows are drawn, so this warns
+# rather than refusing.
+if ! command -v swiftc >/dev/null 2>&1 || ! swiftc --version >/dev/null 2>&1; then
+  warn "swiftc not available - the cheatsheet and plugin panels will use their"
+  warn "fallbacks. 'xcode-select --install' gets you the native ones."
+fi
 
 if (( DRY )); then
   printf '\033[1;35mDRY RUN\033[0m nothing below is executed. Repo: %s\n\n' "$REPO"

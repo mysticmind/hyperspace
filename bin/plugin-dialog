@@ -9,12 +9,42 @@ Toggling goes through `bin/plugin`, never through the state file directly, so
 a pick here runs the same install.sh / uninstall.sh hooks, the same config
 rebuild and the same rollback-on-collision as the CLI.
 """
-import pathlib, subprocess, sys, tomllib
+import pathlib, subprocess, sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 PLUGINS = REPO/"plugins"
 STATE = pathlib.Path.home()/".local/state/hyperspace/enabled-plugins"
 SEP = "  -  "          # splits the row back into a name; see rows()
+
+def read_toml(path):
+    """Read a plugin.toml without tomllib.
+
+    tomllib arrived in python 3.11 and macOS ships 3.9.6, so importing it made
+    `brew install python` a prerequisite of hyperspace - for two string fields.
+    A plugin.toml is `key = "value"` lines and nothing else, so it is read here
+    directly. tomllib is still preferred when the interpreter has it, so a
+    plugin using anything fancier keeps working on a newer python.
+    """
+    text = path.read_text()
+    try:
+        import tomllib
+        return tomllib.loads(text)
+    except ModuleNotFoundError:
+        pass
+    out = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+            # TOML escapes; the volume plugin's description contains one.
+            value = value.replace('\\\\', '\\').replace('\\"', '"')
+        out[key.strip()] = value
+    return out
+
 
 
 def enabled():
@@ -32,7 +62,7 @@ def rows():
         desc, f = "", d/"plugin.toml"
         if f.exists():
             try:
-                desc = tomllib.loads(f.read_text()).get("description", "")
+                desc = read_toml(f).get("description", "")
             except Exception:
                 desc = "(bad plugin.toml)"
         out.append((d.name, f"{d.name}{SEP}{desc}" if desc else d.name))
