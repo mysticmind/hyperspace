@@ -73,6 +73,28 @@ if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2
     "  xcode-select --install"
 fi
 
+# Karabiner-Elements writes karabiner.json on its FIRST LAUNCH, not when the
+# cask is installed. bin/karabiner-rule refuses to invent one, and this script
+# runs set -e, so without it the install used to die at step 3 having already
+# installed packages and linked configs. Checked here, before anything is
+# touched, because a part-finished install is the worst outcome available.
+#
+# Deferred until after the Brewfile step in the real run, since brew is what
+# puts Karabiner-Elements on disk in the first place.
+karabiner_config_ready() {
+  [[ -f "$HOME/.config/karabiner/karabiner.json" ]]
+}
+
+wait_for_karabiner_config() {
+  local waited=0
+  while (( waited < 60 )); do
+    karabiner_config_ready && return 0
+    sleep 2
+    waited=$((waited + 2))
+  done
+  return 1
+}
+
 # swiftc is optional and only affects how two windows are drawn, so this warns
 # rather than refusing.
 if ! command -v swiftc >/dev/null 2>&1 || ! swiftc --version >/dev/null 2>&1; then
@@ -202,6 +224,43 @@ else
   if ! ls "$HOME/Library/Fonts"/JetBrainsMono*Nerd* >/dev/null 2>&1 \
      && ! brew list --cask font-jetbrains-mono-nerd-font >/dev/null 2>&1; then
     warn "JetBrains Mono Nerd Font not found - menu bar pills use the system font"
+  fi
+fi
+
+# Karabiner's config has to exist before step 3 merges into it, and nothing
+# below this line should run if it cannot. See the note by
+# karabiner_config_ready above.
+if ! karabiner_config_ready; then
+  log "Karabiner-Elements has not been launched yet"
+  note "It writes ~/.config/karabiner/karabiner.json on first launch, and the"
+  note "Caps Lock -> Super rule is merged into that file rather than replacing it."
+  if (( DRY )); then
+    would "open Karabiner-Elements and wait for it to write its config"
+  elif [[ -t 0 ]] && [[ -d /Applications/Karabiner-Elements.app ]]; then
+    read -r -p "      launch it now and wait? [Y/n] " reply
+    if [[ ! "$reply" =~ ^[Nn] ]]; then
+      open -a Karabiner-Elements 2>/dev/null || true
+      note "waiting for the config (up to 60s)..."
+      if wait_for_karabiner_config; then
+        log "Karabiner wrote its config"
+      else
+        die "Karabiner did not write a config within 60s." \
+          "Finish its first-run setup, then re-run install.sh." \
+          "No config of yours has been touched; Homebrew may have installed" \
+          "packages above, and re-running is safe."
+      fi
+    else
+      die "Karabiner's config is required before the rule can be merged." \
+        "Open Karabiner-Elements once, then re-run install.sh." \
+        "No config of yours has been touched; Homebrew may have installed" \
+        "packages above, and re-running is safe."
+    fi
+  else
+    die "Karabiner-Elements has not written a config yet." \
+      "Open it once so it creates ~/.config/karabiner/karabiner.json," \
+      "then re-run install.sh." \
+      "No config of yours has been touched; Homebrew may have installed" \
+      "packages above, and re-running is safe."
   fi
 fi
 

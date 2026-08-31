@@ -64,10 +64,19 @@ back, install it yourself - hyperspace no longer has an opinion about it.
 | `python3` 3.9+ | config generation, cheatsheet, plugin manager | refuses, `xcode-select --install` |
 | `swiftc` | the native cheatsheet and plugin panels | warns, falls back |
 | a terminal | `Super+Return` | uses whichever you have, else `Terminal` |
+| Karabiner-Elements launched once | it writes `karabiner.json` on first launch, and the Caps Lock rule is merged into that file | offers to launch it and wait, else refuses |
+| trusted Homebrew taps | Homebrew 6 will not load a cask from an untrusted tap | names them and asks |
+| Accessibility permission | AeroSpace and Karabiner cannot manage windows or keys without it | cannot be scripted; macOS asks on first run |
 
 macOS ships python 3.9 and `swiftc` with the Command Line Tools, so
-`xcode-select --install` covers both. `install.sh` checks each one before it
-touches anything and names the command that fixes it.
+`xcode-select --install` covers both. Everything above except the Accessibility
+grant is checked by `install.sh` before your configuration is touched, and each
+one names the command that fixes it.
+
+The Karabiner row is the easy one to trip over on a fresh machine: `brew`
+installs the app, but the app writes its config on first launch, so a brand new
+Mac has no `karabiner.json` for the rule to merge into. install.sh offers to
+open it and wait rather than making you work that out.
 
 ## Install
 
