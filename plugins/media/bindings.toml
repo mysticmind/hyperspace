@@ -1,7 +1,8 @@
 # The plugin-dir token below is replaced with this plugin's own directory
 # by bin/build-config, so nothing hardcodes where the repo was cloned.
-# macOS media keys already do this globally; these are for when your hands are
-# on the home row and Spotify is not focused.
+# These act on whichever supported player is running — media-ctl discovers it
+# rather than naming one. A keyboard with real media keys already does this
+# globally; these are for when your hands are on the home row.
 #
 # Prev/next are on [ and ], NOT on , and . — Super+Shift with comma, period or
 # slash never reaches AeroSpace, and nothing in this file can fix that. An
@@ -12,6 +13,6 @@
 # rules out AeroSpace, the bindings and macOS shortcuts alike. Posting the same
 # chord synthetically DOES fire the binding, which is what makes this look like
 # a config bug when it is not one.
-cmd-ctrl-alt-shift-rightSquareBracket = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'      # next track
-cmd-ctrl-alt-shift-leftSquareBracket = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl previous'   # previous track
-cmd-ctrl-alt-shift-backslash = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl playpause'  # play / pause
+cmd-ctrl-alt-shift-rightSquareBracket = 'exec-and-forget @PLUGIN_DIR@/media-ctl next'      # next track
+cmd-ctrl-alt-shift-leftSquareBracket = 'exec-and-forget @PLUGIN_DIR@/media-ctl previous'   # previous track
+cmd-ctrl-alt-shift-backslash = 'exec-and-forget @PLUGIN_DIR@/media-ctl playpause'  # play / pause

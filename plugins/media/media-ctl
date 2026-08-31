@@ -1,0 +1,67 @@
+#!/bin/bash
+# Transport control and now-playing for whichever audio player is running.
+# Generalised from a Spotify-only script: the mechanism is the same, but the
+# app is discovered instead of hardcoded.
+#
+# WHY NOT SYSTEM MEDIA KEYS, which would cover browser tabs too and need no
+# list at all: macOS ignores synthesized ones. Measured on 26.6 — posting
+# NSSystemDefined media keys from a compiled binary with Accessibility granted
+# (AXIsProcessTrusted true) changes nothing, and MRMediaRemoteSendCommand
+# returns true while doing nothing, MRMediaRemoteGetNowPlayingInfo returns
+# empty. Apple restricted MediaRemote to signed callers in 15.4. So no
+# player-agnostic route survives, and naming the players is what is left.
+#
+# To add a player it must speak the iTunes vocabulary — player state, current
+# track, artist/name/album, playpause/next track/previous track. Music,
+# Spotify and the rest below all do. VLC and IINA do not and would each need
+# their own dialect. Browsers cannot be covered this way at all.
+set -uo pipefail
+
+PLAYERS=(
+  "Music:Music"
+  "Spotify:Spotify"
+  "Swinsian:Swinsian"
+  "Doppler:Doppler"
+  "TIDAL:TIDAL"
+)
+
+# Load-bearing guard: `tell application "X"` LAUNCHES X, so every osascript
+# call below has to be gated on the process already existing. Without it, a
+# 5-second menu bar refresh would start every player in the list, forever.
+state_of() { osascript -e "tell application \"$1\" to player state as text" 2>/dev/null; }
+
+# The player to act on: one that is actually playing, else the first paused
+# one, so the controls still work for whatever you last had open.
+active() {
+  local paused="" app proc s
+  for e in "${PLAYERS[@]}"; do
+    app="${e%%:*}"; proc="${e##*:}"
+    pgrep -x "$proc" >/dev/null 2>&1 || continue
+    s="$(state_of "$app")"
+    [[ "$s" == "playing" ]] && { echo "$app"; return 0; }
+    [[ -z "$paused" && -n "$s" && "$s" != "stopped" ]] && paused="$app"
+  done
+  [[ -n "$paused" ]] && echo "$paused"
+}
+
+APP="$(active)"
+[[ -z "$APP" ]] && exit 0          # nothing to talk to; every verb is a no-op
+
+case "${1:-}" in
+  playpause) osascript -e "tell application \"$APP\" to playpause" >/dev/null 2>&1 ;;
+  next)      osascript -e "tell application \"$APP\" to next track" >/dev/null 2>&1 ;;
+  previous)  osascript -e "tell application \"$APP\" to previous track" >/dev/null 2>&1 ;;
+  open)      open -a "$APP" ;;
+  # Tab-separated so the menu bar plugin can read it with one `read`.
+  status)
+    osascript 2>/dev/null <<AS
+tell application "$APP"
+  set s to player state as text
+  if s is "stopped" then return ""
+  return "$APP" & tab & s & tab & (artist of current track as text) & tab & ¬
+         (name of current track as text) & tab & (album of current track as text)
+end tell
+AS
+    ;;
+  *) echo "usage: media-ctl (playpause|next|previous|open|status)" >&2; exit 1 ;;
+esac

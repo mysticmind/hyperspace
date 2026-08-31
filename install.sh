@@ -100,6 +100,7 @@ link "$REPO/bin/cheatsheet-toggle" "$HOME/.local/bin/hyperspace-cheatsheet"
 link "$REPO/bin/close-window" "$HOME/.local/bin/hyperspace-close"
 link "$REPO/bin/doctor" "$HOME/.local/bin/hyperspace-doctor"
 link "$REPO/bin/plugin" "$HOME/.local/bin/hyperspace-plugin"
+link "$REPO/bin/plugin-ui" "$HOME/.local/bin/hyperspace-plugins"
 
 # --- 3. Karabiner: merge one rule into whatever you already have ------------
 log "Adding the Caps Lock -> Super rule to your existing karabiner.json"

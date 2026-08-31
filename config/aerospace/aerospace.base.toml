@@ -69,6 +69,12 @@ run = 'layout floating'
 if.window-title-regex-substring = 'hyperspace-cheatsheet'
 run = 'layout floating'
 
+# The Swift plugin panel. It is a normal app window, so the tiler would
+# otherwise size it into the layout.
+[[on-window-detected]]
+if.window-title-regex-substring = 'Hyperspace Plugins'
+run = 'layout floating'
+
 # @plugin-window-rules@
 
 # --- Omarchy's map ----------------------------------------------------------
@@ -109,6 +115,10 @@ cmd-ctrl-alt-f = 'fullscreen --no-outer-gaps'   # fullscreen
 # Alacritty with a known title; the script toggles it by looking for that
 # title, so there is nothing resident.
 cmd-ctrl-alt-k = 'exec-and-forget $HOME/.local/bin/hyperspace-cheatsheet'   # this cheatsheet
+# Next to the cheatsheet on purpose: a disabled plugin takes its bindings out
+# of the cheatsheet with it, so this is where you go to put them back. It is a
+# native Swift panel, floated by the rule above.
+cmd-ctrl-alt-shift-k = 'exec-and-forget $HOME/.local/bin/hyperspace-plugins'   # plugins: enable / disable
 cmd-ctrl-alt-n = 'macos-native-fullscreen'   # native fullscreen
 cmd-ctrl-alt-comma = 'balance-sizes'   # balance sizes
 

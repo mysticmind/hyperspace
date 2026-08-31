@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""Native plugin manager, on Super+Shift+K.
+
+A macOS `choose from list` panel rather than a terminal: pick the plugins that
+should be ON, and the difference against the current state is applied. Nothing
+is compiled and nothing is installed — osascript is already there.
+
+Toggling goes through `bin/plugin`, never through the state file directly, so
+a pick here runs the same install.sh / uninstall.sh hooks, the same config
+rebuild and the same rollback-on-collision as the CLI.
+"""
+import pathlib, subprocess, sys, tomllib
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+PLUGINS = REPO/"plugins"
+STATE = pathlib.Path.home()/".local/state/hyperspace/enabled-plugins"
+SEP = "  —  "          # splits the row back into a name; see rows()
+
+
+def enabled():
+    if not STATE.exists():
+        return set()
+    return {l.strip() for l in STATE.read_text().splitlines()
+            if l.strip() and not l.startswith("#")}
+
+
+def rows():
+    if not PLUGINS.is_dir():
+        return []
+    out = []
+    for d in sorted(p for p in PLUGINS.iterdir() if p.is_dir()):
+        desc, f = "", d/"plugin.toml"
+        if f.exists():
+            try:
+                desc = tomllib.loads(f.read_text()).get("description", "")
+            except Exception:
+                desc = "(bad plugin.toml)"
+        out.append((d.name, f"{d.name}{SEP}{desc}" if desc else d.name))
+    return out
+
+
+def esc(s):
+    """AppleScript string literal. The volume plugin's description contains a
+    backslash, so this is not theoretical."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def lst(items):
+    return "{" + ", ".join(f'"{esc(i)}"' for i in items) + "}"
+
+
+def ask(labels, preselected):
+    # `tell application "System Events"` + activate, or the panel opens behind
+    # whatever is focused and looks like nothing happened.
+    script = f'''
+tell application "System Events"
+  activate
+  set r to choose from list {lst(labels)} ¬
+    with prompt "Select the plugins to keep ON:" ¬
+    default items {lst(preselected)} ¬
+    with multiple selections allowed and empty selection allowed
+end tell
+-- A one-character flag rather than a sentinel word. AppleScript accepts
+-- only newline, tab, return, quote and backslash escapes in a literal, so
+-- a null-byte marker is a syntax error here, and a readable word could
+-- collide with a plugin label. This comment sits inside a Python f-string,
+-- so it must not contain a backslash escape of its own.
+if r is false then return "C"
+set AppleScript's text item delimiters to linefeed
+return "S" & (r as text)
+'''
+    p = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if p.returncode != 0:
+        sys.exit(p.stderr.strip() or "osascript failed")
+    out = p.stdout.rstrip("\n")
+    if not out or out[0] == "C":
+        return None                              # cancelled
+    return [l for l in out[1:].splitlines() if l.strip()]
+
+
+def notify(msg):
+    subprocess.run(["osascript", "-e",
+                    f'display notification "{esc(msg)}" with title "hyperspace plugins"'],
+                   capture_output=True)
+
+
+def alert(msg):
+    subprocess.run(["osascript", "-e",
+                    f'tell application "System Events" to activate\n'
+                    f'display alert "hyperspace plugins" message "{esc(msg)}" as warning'],
+                   capture_output=True)
+
+
+def main():
+    r = rows()
+    if not r:
+        alert("No plugins found in plugins/."); return
+    by_label = {label: name for name, label in r}
+    on = enabled()
+
+    picked = ask([label for _, label in r], [label for name, label in r if name in on])
+    if picked is None:
+        return                                   # cancelled: change nothing
+
+    want = {by_label[l] for l in picked if l in by_label}
+    to_enable, to_disable = sorted(want - on), sorted(on - want)
+    if not to_enable and not to_disable:
+        return
+
+    failed, done = [], []
+    for action, names in (("enable", to_enable), ("disable", to_disable)):
+        if not names:
+            continue
+        p = subprocess.run([str(REPO/"bin/plugin"), action, *names],
+                           capture_output=True, text=True)
+        if p.returncode == 0:
+            done += [f"{action}d {n}" for n in names]
+        else:
+            failed.append((p.stdout + p.stderr).strip() or f"{action} failed")
+
+    if failed:
+        alert("\n".join(failed))
+    elif done:
+        notify(", ".join(done))
+
+
+if __name__ == "__main__":
+    main()

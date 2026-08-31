@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Super+Shift+K: the native plugin panel.
+#
+# Built on first run and cached, rather than compiled by install.sh: there is
+# no build step to forget, no binary in the repo, and it rebuilds by itself
+# whenever the source is newer than the cache.
+#
+# Without Xcode Command Line Tools there is no swiftc, so this falls back to
+# plugin-dialog, which needs nothing but osascript. That is the only reason
+# plugin-dialog still exists.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
+SRC="$HERE/plugin-ui.swift"
+CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/hyperspace/plugin-ui"
+
+command -v swiftc >/dev/null 2>&1 || exec "$HERE/plugin-dialog"
+
+if [[ ! -x "$CACHE" || "$SRC" -nt "$CACHE" ]]; then
+  mkdir -p "$(dirname "$CACHE")"
+  if ! swiftc -O -parse-as-library "$SRC" -o "$CACHE" 2>"$CACHE.log"; then
+    echo "plugin-ui: build failed, see $CACHE.log" >&2
+    exec "$HERE/plugin-dialog"
+  fi
+fi
+
+exec "$CACHE" "$HERE/plugin"

@@ -11,6 +11,13 @@
 AS=/opt/homebrew/bin/aerospace
 [ -x "$AS" ] || { echo "⚠︎ aerospace"; exit 0; }
 
+# SwiftBar runs this through a symlink in ~/.config/swiftbar, so resolve back
+# to the repo rather than assuming a clone path. ~/.local/bin is not
+# necessarily on SwiftBar's PATH, so call bin/plugin directly.
+SELF="${BASH_SOURCE[0]}"
+REAL="$(readlink "$SELF" 2>/dev/null || echo "$SELF")"
+REPO="$(cd "$(dirname "$REAL")/../.." && pwd)"
+
 focused=$("$AS" list-workspaces --focused 2>/dev/null)
 if [ -z "$focused" ]; then
   echo "○ | color=#8a8a8a"
@@ -52,6 +59,22 @@ while IFS='|' read -r wid app title; do
   # never sees one it did not put there
   title=$(echo "$title" | tr '|' '/' | cut -c1-45)
   [ -n "$wid" ] && echo "  $app — $title | bash=$AS param1=focus param2=--window-id param3=$wid terminal=false refresh=true length=50"
+done
+
+# A disabled plugin takes its keybindings out of the cheatsheet with it, so
+# without this there is nothing left anywhere pointing at how to switch one
+# back on — the CLI works, but you have to already know it exists.
+echo "---"
+echo "Plugins | size=11 color=#8a8a8a"
+STATE="$HOME/.local/state/hyperspace/enabled-plugins"
+for d in "$REPO"/plugins/*/; do
+  [ -d "$d" ] || continue
+  name=$(basename "$d")
+  if grep -qx "$name" "$STATE" 2>/dev/null; then
+    echo "  ● $name — on | bash=$REPO/bin/plugin param1=disable param2=$name terminal=false refresh=true"
+  else
+    echo "  ○ $name — off | bash=$REPO/bin/plugin param1=enable param2=$name terminal=false refresh=true"
+  fi
 done
 
 echo "---"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manage hyperspace plugins.
 
-    plugin list                 what exists, and what is on
+    plugin list [--json]        what exists, and what is on
     plugin enable <name>...     turn on, rebuild the config, reload AeroSpace
     plugin disable <name>...    turn off, likewise
 
@@ -17,7 +17,7 @@ A plugin is a directory under plugins/ containing:
 Nothing is enabled implicitly: dropping a directory into plugins/ does nothing
 until you enable it, so a git pull cannot silently rebind your keyboard.
 """
-import pathlib, subprocess, sys, tomllib
+import json, pathlib, plistlib, subprocess, sys, time, tomllib
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 PLUGINS = REPO/"plugins"
@@ -51,6 +51,50 @@ def available():
     return sorted(d.name for d in PLUGINS.iterdir() if d.is_dir()) if PLUGINS.is_dir() else []
 
 
+def swiftbar_undisable(paths):
+    """SwiftBar keeps its OWN disabled list, keyed by resolved path, in
+    com.ameba.SwiftBar. It is set from the menu bar and it outlives our
+    symlink: we only ever managed ~/.config/swiftbar, so a plugin switched
+    off there stayed dark no matter how often you re-enabled it here. That
+    made disabling from the menu bar a one-way door. Clear our own entries
+    so `enable` actually means enabled.
+
+    SwiftBar caches preferences in memory and rewrites them when it quits, so
+    a write behind its back is simply lost. It has to be stopped first — but
+    only when there is really something to clear, which is almost never.
+    """
+    want = {str(pathlib.Path(p).resolve()) for p in paths}
+
+    def disabled():
+        try:
+            r = subprocess.run(["defaults", "export", "com.ameba.SwiftBar", "-"],
+                               capture_output=True)
+            return plistlib.loads(r.stdout) if r.returncode == 0 else None
+        except Exception:
+            return None
+
+    d = disabled()
+    if d is None or not (set(d.get("DisabledPlugins") or []) & want):
+        return
+
+    was_running = subprocess.run(["pgrep", "-x", "SwiftBar"],
+                                 capture_output=True).returncode == 0
+    if was_running:
+        subprocess.run(["osascript", "-e", 'tell application "SwiftBar" to quit'],
+                       capture_output=True)
+        time.sleep(2)
+
+    d = disabled()          # re-read: quitting flushes SwiftBar's own copy
+    if d is None:
+        return
+    d["DisabledPlugins"] = [x for x in (d.get("DisabledPlugins") or []) if x not in want]
+    subprocess.run(["defaults", "import", "com.ameba.SwiftBar", "-"],
+                   input=plistlib.dumps(d))
+    print("  cleared SwiftBar's own disable (it had been switched off from the menu bar)")
+    if was_running:
+        subprocess.run(["open", "-a", "SwiftBar"], capture_output=True)
+
+
 def link_swiftbar(name, on):
     d = PLUGINS/name/"swiftbar"
     if not d.is_dir():
@@ -65,6 +109,7 @@ def link_swiftbar(name, on):
             dst.unlink(missing_ok=True)
             dst.symlink_to(f)
             print(f"  linked menu bar plugin {f.name}")
+            swiftbar_undisable([f])
         elif dst.is_symlink() and dst.resolve() == f.resolve():
             dst.unlink()
             print(f"  unlinked menu bar plugin {f.name}")
@@ -86,9 +131,16 @@ def rebuild():
     return True
 
 
-def cmd_list():
+def cmd_list(as_json=False):
     on = set(enabled())
     names = available()
+    # --json is what the Swift panel reads, so it never has to parse TOML or
+    # know where the state file lives. One source of truth for both front ends.
+    if as_json:
+        print(json.dumps([{"name": n,
+                           "description": meta(n).get("description", ""),
+                           "enabled": n in on} for n in names]))
+        return
     if not names:
         print("no plugins in plugins/")
         return
@@ -103,7 +155,7 @@ def main():
         print(__doc__); return
     action, names = sys.argv[1], sys.argv[2:]
     if action == "list":
-        cmd_list(); return
+        cmd_list(as_json="--json" in names); return
     if action not in ("enable", "disable") or not names:
         sys.exit("usage: plugin (list|enable <name>...|disable <name>...)")
 

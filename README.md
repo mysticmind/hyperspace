@@ -139,7 +139,7 @@ directory, so a plugin can call its own helper scripts without hardcoding
 where the repo was cloned:
 
 ```toml
-cmd-ctrl-alt-shift-period = 'exec-and-forget @PLUGIN_DIR@/spotify-ctl next'
+cmd-ctrl-alt-shift-rightSquareBracket = 'exec-and-forget @PLUGIN_DIR@/media-ctl next'
 ```
 
 The generated file is gitignored, and `install.sh` builds it before linking.
@@ -168,7 +168,7 @@ fails to build.
 | `volume` | `Super+[` / `Super+]` volume, `Super+\` mute — uses AeroSpace's native `volume` command, no dependencies |
 | `screenshot` | `Super+P` region to clipboard, `Super+Shift+P` region to file |
 | `dictation` | [Handy](https://handy.computer): **Right Option held** = push-to-talk, **Super+D** = toggle start/stop |
-| `spotify` | now playing in the menu bar with transport controls; `Super+Shift+,` / `.` prev/next, `Super+Shift+\\` play-pause |
+| `media` | now playing in the menu bar with transport controls for whichever player is running; `Super+Shift+[` / `]` prev/next, `Super+Shift+\\` play-pause |
 
 ## Your terminal's title bar
 
