@@ -96,22 +96,71 @@ fi
 # 6. Every mutation in install.sh is behind the dry-run flag. This is what
 #    makes --dry-run trustworthy rather than decorative: if a write is added
 #    without a guard, the listing silently stops matching what runs.
-unguarded=0
-while IFS=: read -r lineno text; do
-  # Mutating verbs, outside comments.
-  case "$text" in \#*|*'|| true'*) continue ;; esac
-  unguarded=$((unguarded+1))
-  printf '        install.sh:%s %s\n' "$lineno" "${text# }"
-done < <(awk '
-  /^\s*#/            { next }
-  /DRY/              { next }
-  /^\s*(defaults write|ln -sfn|launchctl (bootstrap|kickstart)|brew (bundle|services)|killall|open -a)/ {
-    print NR ":" $0
-  }' install.sh)
-if (( unguarded )); then
-  bad "install.sh has $unguarded mutation(s) not visibly guarded by DRY"
-else
+#
+#    Block structure, not a line regex. The mutations live in the `else` arm of
+#    `if (( DRY ))`, so a line-level match calls every one of them unguarded.
+#    The first version of this check used awk with \s, which BSD awk ignores
+#    and GNU awk honours: it found nothing on macOS and six false hits on
+#    Linux, passing locally for the wrong reason. python3 is on both runners
+#    and needs no such dialect.
+if python3 - install.sh <<'GUARD'
+import re, sys
+
+src = open(sys.argv[1]).read().splitlines()
+
+MUTATION = re.compile(r'''^\s*(defaults\s+write|ln\s+-sfn|rm\s|mv\s
+                          |launchctl\s+(bootstrap|kickstart|bootout)
+                          |brew\s+(bundle|services)|killall|open\s+-a)''', re.X)
+
+# `if` and `fi` as whole words. The lookarounds keep `elif` and `config` out,
+# and one-line `if ...; then ...; fi` balances because both are counted rather
+# than being treated as either/or.
+WORD = re.compile(r'(?<![\w-])(if|fi)(?![\w-])')
+HEREDOC = re.compile(r'<<-?\s*[\'"]?([A-Za-z_][A-Za-z_0-9]*)[\'"]?')
+
+stack = []          # one entry per open `if`; True when it is a DRY guard
+unguarded = []
+pending = None      # heredoc terminator we are waiting for
+
+for n, line in enumerate(src, 1):
+    if pending is not None:
+        if line.strip() == pending:
+            pending = None
+        continue                     # heredoc body is text, not code
+    bare = line.split('#', 1)[0]
+
+    # Guard state applies to THIS line before it opens or closes anything, so a
+    # mutation sharing a line with its own `if (( DRY ))` still counts.
+    guarded = any(stack) or 'DRY' in bare
+    if MUTATION.match(bare) and not guarded:
+        unguarded.append((n, line.strip()))
+
+    # Quoted text first: a `would "...remap if one is set"` message counts as
+    # an if-opener otherwise, and one stray word silently unbalances the whole
+    # parse. That is what the open-block guard below exists to notice.
+    code = re.sub(r'"[^"]*"|\'[^\']*\'', '', bare)
+    words = WORD.findall(code)
+    for _ in range(words.count('if')):
+        stack.append('DRY' in code)
+    for _ in range(words.count('fi')):
+        if stack:
+            stack.pop()
+
+    m = HEREDOC.search(bare)
+    if m:
+        pending = m.group(1)
+
+if stack:
+    print(f'        (parser left {len(stack)} if-block(s) open; check is unreliable)')
+    sys.exit(1)
+for n, text in unguarded:
+    print(f'        install.sh:{n} {text}')
+sys.exit(1 if unguarded else 0)
+GUARD
+then
   ok "every mutation in install.sh sits behind the dry-run guard"
+else
+  bad "install.sh has mutation(s) not behind the dry-run guard"
 fi
 
 # 7. LaunchAgents may launch, never persist. KeepAlive would make it a daemon,
