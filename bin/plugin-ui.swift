@@ -194,7 +194,12 @@ struct ContentView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(selected ? Color.accentColor.opacity(0.18) : Color.clear)
+        // The unemphasised selection colour rather than a tinted accent: it
+        // is defined against the list background in both appearances, so the
+        // row reads in dark mode without restyling every label inside it the
+        // way a filled accent row would demand.
+        .background(selected ? Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+                             : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture { model.selection = i }
     }

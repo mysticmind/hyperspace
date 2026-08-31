@@ -89,22 +89,22 @@ binding becomes its description:
 cmd-ctrl-alt-w = 'close'   # close window
 ```
 
-The window is an ordinary Alacritty window with a known title. Three things
-place it, all of them settings on that window rather than machinery of ours: an
-`on-window-detected` rule floats it, Alacritty's own `window.level` pins it
-above other windows, and `bin/cheatsheet-toggle` centres it from the sheet's
-measured size. The toggle is just "does a window with that title exist" —
-nothing resident, no helper process.
+It is a native SwiftUI panel, compiled on first run and cached — no build step,
+no binary in the repo, no `.app` bundle. It centres itself, sits above other
+windows, and follows light and dark mode, all of which it gets for free by
+being a real window: it can measure itself.
 
-Centring is arithmetic, not a query: nothing can ask a window where it will
-land before it opens. `bin/cheatsheet-toggle` predicts the size from the glyph
-metrics of JetBrains Mono at 14 — `8.0` per column, `18.5` per line, plus
-Alacritty's `window.padding` on *each* side — and halves the remaining screen.
-Change the font or its size and those constants are wrong; `HYPERSPACE_SCALE`
-and `HYPERSPACE_Y_OFFSET` are there to correct it without editing the script.
-Get the size wrong by enough and the window is placed off screen, at which
-point macOS clamps it against an edge — which looks like bad centring but is
-not.
+That is why it stopped being a terminal. A terminal window cannot be asked how
+big it will be, so the old version predicted its own size from the glyph metrics
+of JetBrains Mono at 14 and did arithmetic to centre it. Constants like that go
+wrong the moment the font does, and when they drift far enough the window is
+placed off screen and macOS clamps it to an edge — which looks like bad centring
+but is not. `NSHostingView.fittingSize` replaces the whole guess.
+
+The Alacritty version survives as `bin/cheatsheet-term`, the fallback for
+machines with no `swiftc`. `bin/cheatsheet-toggle` picks between them.
+
+The toggle is just "is the panel running" — nothing resident, no helper process.
 
 ## Plugins
 
@@ -356,10 +356,15 @@ install.sh / uninstall.sh         symmetric, manifest-driven
 bin/karabiner-rule                surgical add/remove of the Caps→Super rule
 bin/login-agent                   launch-at-login for SwiftBar
 bin/doctor                        diagnose the three layers when a chord does nothing
-bin/cheatsheet                    render the cheatsheet from aerospace.toml
-bin/cheatsheet-toggle             Super+K show/hide
+bin/cheatsheet                    parse aerospace.toml (text, or --json for the panel)
+bin/cheatsheet-toggle             Super+K show/hide, builds and caches the panel
+bin/cheatsheet-ui.swift           the cheatsheet panel (SwiftUI)
+bin/cheatsheet-term               Alacritty cheatsheet, fallback when there is no swiftc
 bin/build-config                  aerospace.base.toml + plugins -> aerospace.toml
 bin/plugin                        list / enable / disable plugins
+bin/plugin-ui                     Super+Shift+K show/hide, builds and caches the panel
+bin/plugin-ui.swift               the plugin panel (SwiftUI)
+bin/plugin-dialog                 osascript plugin picker, fallback when there is no swiftc
 plugins/<name>/                   see Plugins above
 config/aerospace/aerospace.base.toml   the window manager (aerospace.toml is generated)
 config/swiftbar/aerospace.10s.sh  menu bar plugin: pills, switcher, cheatsheet

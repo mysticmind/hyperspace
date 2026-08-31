@@ -1,90 +1,47 @@
 #!/usr/bin/env bash
 # Super+K: show the cheatsheet, or close it if it is already up.
 #
-# The window is an ordinary Alacritty window with a known title, floated by an
-# on-window-detected rule in aerospace.toml. No always-running helper, no
-# private API — the toggle is just "does a window with this title exist".
+# Built on first run and cached, rather than compiled by install.sh: there is
+# no build step to forget, no binary in the repo, and it rebuilds by itself
+# whenever the source is newer than the cache.
+#
+# Without Xcode Command Line Tools there is no swiftc, so this falls back to
+# cheatsheet-term, the Alacritty window this replaced. That path still works,
+# it just has to predict its own size from font metrics to place itself; the
+# native panel measures itself instead.
 set -uo pipefail
 
-TITLE="hyperspace-cheatsheet"
 AS="${AEROSPACE:-/opt/homebrew/bin/aerospace}"
-TERM_BIN="/Applications/Alacritty.app/Contents/MacOS/alacritty"
 HERE="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")" && pwd)"
-SHEET="$HERE/cheatsheet"
+SRC="$HERE/cheatsheet-ui.swift"
+CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/hyperspace/cheatsheet-ui"
 
-read -r wid pid < <("$AS" list-windows --all --format '%{window-id}|%{app-pid}|%{window-title}' 2>/dev/null \
-                    | awk -F'|' -v t="$TITLE" '$3 == t { print $1, $2; exit }')
-
-if [[ -n "${wid:-}" ]]; then
-  # AeroSpace's `close` presses the window's Accessibility close button, and a
-  # decorations="none" window has none — so close is a silent no-op here and
-  # the sheet would never shut. Kill the instance instead: `open -na` gave it
-  # its own process. Guarded, so a shared process is never killed out from
-  # under other windows.
-  owned="$("$AS" list-windows --all --format '%{app-pid}' 2>/dev/null | grep -c "^${pid}$")"
-  if [[ "$owned" == "1" ]]; then
-    kill "$pid" 2>/dev/null || "$AS" close --window-id "$wid"
-  else
-    "$AS" close --window-id "$wid"
-  fi
+# A toggle, not a launcher: a second press closes the sheet rather than
+# stacking another copy behind the first. Matched on the cache path, which is
+# this binary's argv[0] and is not a substring of anything else.
+if pids="$(pgrep -f "$CACHE" 2>/dev/null)" && [[ -n "$pids" ]]; then
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null
   exit 0
 fi
 
-[[ -d /Applications/Alacritty.app ]] || { echo "Alacritty.app not found" >&2; exit 1; }
+# The Alacritty fallback owns its own toggle, including closing a sheet this
+# script never opened, so hand over before doing anything else.
+command -v swiftc >/dev/null 2>&1 || exec "$HERE/cheatsheet-term"
 
-# Centre it. AeroSpace cannot place a floating window, and Alacritty otherwise
-# lands wherever macOS cascades it — which put the sheet partly off the top of
-# the screen. Finder's desktop bounds give the display size with no special
-# permission; the glyph constants are measured for JetBrains Mono at size 14.
-# Ask the sheet how big it needs to be, so the window never scrolls and never
-# leaves dead space — and stays right as plugins add bindings.
-read -r COLS LINES < <("$SHEET" --size 2>/dev/null)
-: "${COLS:=100}" "${LINES:=36}"
-read -r SW SH < <(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
-                  | awk -F', ' '{print $3, $4}')
-: "${SW:=1440}" "${SH:=900}"
-# Alacritty's window.position is in PHYSICAL pixels while Finder reports
-# points, so a centred point coordinate is scaled by the display's backing
-# factor (2 on Retina). There is NO constant offset on either axis: measured on
-# a 1440x900 Retina display, requesting y=174px put the window top at exactly
-# 87pt, and x=307px put its left edge at 153pt.
-#
-# The size model must include Alacritty's padding. window.padding.x/y is per
-# SIDE, so the window is 2*PAD wider and taller than the text grid it holds.
-# Getting that wrong is not cosmetic: it over-estimated the height enough that
-# the requested origin pushed the window past the bottom of the screen, and
-# macOS clamped it back against the edge — which reads as "not centred" but is
-# really "placed off screen and shoved back on".
-#
-# Measured for JetBrains Mono at size 14 with padding 14:
-#     134 cols -> 1100pt wide  =>  (1100 - 28) / 134 = 8.0  per column
-#      38 lines ->  731pt tall  =>  ( 731 - 28) /  38 = 18.5 per line
-SCALE="${HYPERSPACE_SCALE:-2}"
-YOFF="${HYPERSPACE_Y_OFFSET:-0}"
-PAD=14
-read -r POS_X POS_Y < <(awk -v sw="$SW" -v sh="$SH" -v c="$COLS" -v l="$LINES" -v k="$SCALE" -v yo="$YOFF" -v p="$PAD" \
-  'BEGIN { w = c * 8.0 + 2 * p; h = l * 18.5 + 2 * p;
-           x = (sw - w) / 2; y = (sh - h) / 2;
-           if (x < 0) x = 0; if (y < 0) y = 0;
-           print int(x * k), int((y + yo) * k) }')
+# An older install may have left a terminal sheet up. Close it so Super+K
+# cannot leave two cheatsheets on screen at once.
+if wid="$("$AS" list-windows --all --format '%{window-id}|%{window-title}' 2>/dev/null \
+          | awk -F'|' '$2 == "hyperspace-cheatsheet" { print $1; exit }')" && [[ -n "$wid" ]]; then
+  "$AS" close --window-id "$wid" 2>/dev/null
+fi
 
-# startup_mode is overridden because a user config may set Maximized, which
-# would make the sheet fill the screen instead of floating small. window.level
-# pins it above ordinary windows: it is summoned by a chord over whatever you
-# are working in, and a sheet that slips behind that window reads as not having
-# opened. Alacritty 0.17 takes `Normal` or `AlwaysOnTop`.
-# Launched through LaunchServices (`open -na`) rather than as a child process.
-# A backgrounded terminal — even with nohup and disown — dies when the process
-# group of whatever spawned it is torn down, and the window just flashes and
-# vanishes. `open` hands the launch to macOS, so it outlives this script.
-open -na Alacritty --args \
-  --title "$TITLE" \
-  -o 'window.startup_mode="Windowed"' \
-  -o 'window.level="AlwaysOnTop"' \
-  -o "window.dimensions.columns=$COLS" \
-  -o "window.dimensions.lines=$LINES" \
-  -o "window.position.x=$POS_X" \
-  -o "window.position.y=$POS_Y" \
-  -o 'window.padding.x=14' \
-  -o 'window.padding.y=14' \
-  -e /bin/bash -c "'$SHEET'; printf '  press any key to close '; read -rsn1"
+if [[ ! -x "$CACHE" || "$SRC" -nt "$CACHE" ]]; then
+  mkdir -p "$(dirname "$CACHE")"
+  if ! swiftc -O -parse-as-library "$SRC" -o "$CACHE" 2>"$CACHE.log"; then
+    echo "cheatsheet-ui: build failed, see $CACHE.log" >&2
+    exec "$HERE/cheatsheet-term"
+  fi
+fi
+
+exec "$CACHE" "$HERE/cheatsheet"

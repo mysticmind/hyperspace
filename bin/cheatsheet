@@ -147,6 +147,17 @@ def compose(sections, columns=2):
 
 def main():
     sections = parse(CONFIG)
+
+    # The native panel renders its own layout, so it wants the structure, not
+    # the ANSI art. Same parse either way — there is still one source of truth
+    # for what the bindings are.
+    if "--json" in sys.argv:
+        import json
+        print(json.dumps([{"label": label,
+                           "rows": [{"key": k, "desc": d} for k, d in rows]}
+                          for label, rows in blocks(sections)]))
+        return
+
     columns = 1 if "--one-column" in sys.argv else 2
     body = compose(sections, columns)
     title = "hyperspace — keybindings    (Super = Caps Lock)"
