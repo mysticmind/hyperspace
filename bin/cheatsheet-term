@@ -38,15 +38,21 @@ fi
 # terminal would need its own flags, which is an argument for the native panel
 # rather than for a second one of these.
 if [[ ! -d /Applications/Alacritty.app ]]; then
-  cat >&2 <<'MISSING'
-The fallback cheatsheet needs Alacritty, which is not installed.
+  msg="The cheatsheet needs either Xcode Command Line Tools (for the native panel) or Alacritty (for the fallback), and neither is installed.
 
-You are seeing this because swiftc is missing, so the native panel could not
-be built. Either is enough:
+  xcode-select --install
+  brew install --cask alacritty"
 
-  xcode-select --install     then press Super+K again
-  brew install --cask alacritty
-MISSING
+  # Super+K reaches this through exec-and-forget, which discards both stdout
+  # and stderr, so a message written to the terminal is a message nobody sees:
+  # the key just appears dead. That is the same silent failure Super+Return had.
+  # On a terminal, print. Otherwise put it on screen, where the person who
+  # pressed the key is looking.
+  if [[ -t 2 ]]; then
+    printf '%s\n' "$msg" >&2
+  else
+    osascript -e 'display alert "hyperspace cheatsheet" message "'"${msg//\"/\\\"}"'" as warning' >/dev/null 2>&1 || true
+  fi
   exit 1
 fi
 
