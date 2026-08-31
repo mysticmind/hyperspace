@@ -49,8 +49,12 @@ snapshot() { # outfile
 
     echo "--- karabiner.json ---"
     if [[ -f "$HOME/.config/karabiner/karabiner.json" ]]; then
-      # Content hash, not mtime: Karabiner rewrites the file on its own.
-      shasum -a 256 "$HOME/.config/karabiner/karabiner.json" | awk '{print $1}'
+      # Compared by MEANING, not bytes. karabiner-rule rewrites the file with
+      # its own indentation, so a correct uninstall restores the same config in
+      # a different layout. Hashing the raw bytes fails that, which is a test
+      # calling a working teardown broken. Sorted keys, fixed indent.
+      python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])), sort_keys=True, indent=2))' \
+        "$HOME/.config/karabiner/karabiner.json"
     else
       echo "<absent>"
     fi
@@ -71,6 +75,32 @@ snapshot() { # outfile
     [[ -d "$HOME/.local/state/hyperspace" ]] && echo "present" || echo "absent"
   } > "$1"
 }
+
+# A machine that has never launched Karabiner-Elements has no karabiner.json,
+# and `karabiner-rule install` refuses to invent one. install.sh runs set -e,
+# so that stops the whole install - which is why this test could not run on a
+# fresh runner. Seed a minimal config, exactly as launching the app once would,
+# and the merge-and-restore path becomes testable rather than skipped.
+#
+# Seeded BEFORE the snapshot on purpose: it then counts as part of the machine's
+# original state, so uninstall has to hand it back byte for byte.
+KCFG="$HOME/.config/karabiner/karabiner.json"
+if [[ ! -f "$KCFG" ]]; then
+  echo "==> seeding a minimal karabiner.json (none present)"
+  mkdir -p "$(dirname "$KCFG")"
+  cat > "$KCFG" <<'KARABINER'
+{
+    "profiles": [
+        {
+            "complex_modifications": { "rules": [] },
+            "name": "Default profile",
+            "selected": true,
+            "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
+        }
+    ]
+}
+KARABINER
+fi
 
 echo "==> snapshot before"
 snapshot "$WORK/before"

@@ -86,14 +86,21 @@ jobs:
         run: ./tests/dryrun.sh
 
   # The reversibility contract: install, uninstall, assert the machine is
-  # unchanged. Not on by default. It needs the casks, and Karabiner wants a
-  # system extension a headless runner cannot approve, so this is opt-in and
-  # allowed to fail without failing the build. It is here to be run
-  # deliberately, on a machine that can be thrown away.
+  # unchanged. This is the repo's central promise and nothing else tests it, so
+  # it runs for real and is allowed to fail the build.
+  #
+  # It was gated to workflow_dispatch on the grounds that Karabiner needs a
+  # system extension a runner cannot approve. That was wrong. The actual
+  # blocker was narrower: a machine that has never launched Karabiner-Elements
+  # has no karabiner.json, karabiner-rule refuses to invent one, and install.sh
+  # runs set -e. tests/reversible.sh now seeds a minimal config first, which
+  # both unblocks this and makes the merge-and-restore path testable.
+  #
+  # A real install on a throwaway runner: it takes the casks and several
+  # minutes, which is why it does not gate the fast checks above.
   reversible:
     runs-on: macos-latest
-    if: github.event_name == 'workflow_dispatch'
-    continue-on-error: true
+    needs: [properties]
     steps:
       - uses: actions/checkout@v4
       - name: install then uninstall, and diff the machine
